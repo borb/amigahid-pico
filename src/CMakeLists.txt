@@ -1,5 +1,11 @@
 add_executable(amigahid-pico
-	main.c
+  main.c
+  hid_app.c
+)
+
+# make the src subdirectory availabe in the include path so tinyusb can find tusb_config.h
+target_include_directories(amigahid-pico PUBLIC
+  ${CMAKE_CURRENT_LIST_DIR}
 )
 
 pico_enable_stdio_uart(amigahid-pico 1)
