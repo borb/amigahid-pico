@@ -41,7 +41,7 @@ far:
 wherever you are:
 * keyboard is put into hidbp mode which definitely has the six-key limit problem, potentially may not work with keyboards which don't support hidbp (if it doesn't work in bios/uefi it probably won't work here)
 * analogue sticks? thinking something opamp something something to convert analogue >=3.3v levels to >=5v levels for pot inputs
-
+* what about... not amigas? i mean, like, work for other retro systems
 ## license
 
 on the fence at the moment, but the current license choice is Eclipse Public License 2.0 (EPL-2.0).
