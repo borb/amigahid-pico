@@ -46,6 +46,10 @@ int main(void)
     // definition CFG_TUSB_RHPORT0_MODE as OPT_MODE_HOST will put the board into host mode
     tusb_init();
 
+    // we're single arch right now, but in future this should hand off to whatever the
+    // configured arch is
+    amiga_init();
+
     while (1) {
         // run host mode jobs (hotplug events, packet io callbacks)
         tuh_task();
