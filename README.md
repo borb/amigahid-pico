@@ -27,7 +27,6 @@ joystick connection will either have to go to the db9 ports, or to the serial sh
 ## what needs to be finished?
 
 near:
-* modifiers
 * schematic
 * "reset warning" code and handshaking logic
 * error handling

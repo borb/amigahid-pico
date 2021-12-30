@@ -213,7 +213,55 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
             amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
         }
 
-        // @todo this is massively simplified! check h_k_r_t->modifier mask, caps lock, etc.
+        // @todo caps lock not currently handled; avr-amigahid didn't handle it nicely. would be nice to clean up.
+
+        // check modifier state
+        if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
+            printf("[AMIGA] left alt pressed, sending left alt down\n");
+            amiga_send(AMIGA_LALT, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
+            printf("[AMIGA] left alt released, sending left alt up\n");
+            amiga_send(AMIGA_LALT, true);
+        }
+
+        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
+            printf("[AMIGA] right alt pressed, sending right alt down\n");
+            amiga_send(AMIGA_RALT, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
+            printf("[AMIGA] right alt released, sending right alt up\n");
+            amiga_send(AMIGA_RALT, true);
+        }
+
+        if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
+            printf("[AMIGA] left shift pressed, sending left shift down\n");
+            amiga_send(AMIGA_LSHIFT, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
+            printf("[AMIGA] left shift released, sending left shift up\n");
+            amiga_send(AMIGA_LSHIFT, true);
+        }
+
+        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+            printf("[AMIGA] right shift pressed, sending right shift down\n");
+            amiga_send(AMIGA_RSHIFT, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+            printf("[AMIGA] right shift released, sending right shift up\n");
+            amiga_send(AMIGA_RSHIFT, true);
+        }
+
+        if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
+            printf("[AMIGA] left gui pressed, sending left amiga down\n");
+            amiga_send(AMIGA_LAMIGA, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
+            printf("[AMIGA] left gui released, sending left amiga up\n");
+            amiga_send(AMIGA_LAMIGA, true);
+        }
+
+        // menu is mapped to RAMIGA right now; @todo in future, may support menu or rgui
     }
 
     last_report = *report;
