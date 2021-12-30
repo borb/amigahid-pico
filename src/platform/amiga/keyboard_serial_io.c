@@ -18,14 +18,14 @@
 #include "hardware/gpio.h"
 
 // default pins for amiga keyboard communication: GP11 for reset, GP12 for clock, GP13 for data
-#ifndef PIN_AMIGA_DAT
-#  define PIN_AMIGA_DAT 13  // pin 17, GP13
-#endif
 #ifndef PIN_AMIGA_CLK
-#  define PIN_AMIGA_CLK 12  // pin 16, GP12
+#  define PIN_AMIGA_CLK 10  // pin 14, GP10
+#endif
+#ifndef PIN_AMIGA_DAT
+#  define PIN_AMIGA_DAT 11  // pin 15, GP11
 #endif
 #ifndef PIN_AMIGA_RST
-#  define PIN_AMIGA_RST 11  // pin 15, GP11
+#  define PIN_AMIGA_RST 12  // pin 16, GP12
 #endif
 
 enum SYNC_STATE { IDLE, SYNC };
