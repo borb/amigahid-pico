@@ -38,7 +38,9 @@ the intention here is to align to the amiga 500's keyboard header layout; in pro
 | 17   | \<unused\> |         |       |
 | 18   | gnd        | ground  |       |
 
-amiga keyboard header:
+amiga 500 keyboard header:
+
+if you don't have an amiga 500, this should map to an a1000/2000/3000/4000 keyboard connector. find your favourite pinout resource for this information.
 
 all signals are active low.
 
