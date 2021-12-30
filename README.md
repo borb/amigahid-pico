@@ -24,6 +24,35 @@ the amiga 600 and 1200 have differing keyboard connection arrangements to other 
 
 joystick connection will either have to go to the db9 ports, or to the serial shifter input on the denise chip (alice on aga machines). buttons are fed into one of the cia chips. yes, that's right, a complete input replacement will require tendrils everywhere.
 
+you'll need a level shifter at the moment. pick your favourite and try it. because of this ambiguity i can't give you detailed instructions of how to attach that shifter.
+
+pico pins:
+
+the intention here is to align to the amiga 500's keyboard header layout; in proto, i'd like to lay a txs0108/mosfet shifter over the headers and solder the hv side to an amiga attachment ribbon.
+
+| pin# | signal     | meaning | notes |
+|------|------------|---------|-------|
+| 14   | amiga kclk | clock   |       |
+| 15   | amiga kdat | data    |       |
+| 16   | amiga res  | reset   |       |
+| 17   | \<unused\> |         |       |
+| 18   | gnd        | ground  |       |
+
+amiga keyboard header:
+
+all signals are active low.
+
+| pin# | signal | meaning  | notes |
+|------|--------|----------|-------|
+| 1    | kclk   | clock    |       |
+| 2    | kdat   | data     |       |
+| 3    | /res   | reset    | issues a hard reset |
+| 4    | +5v    | 5v power |       |
+| 5    | nc     | nc       | not connected (often physically absent) |
+| 6    | gnd    | ground   | though if powering arduino/avr from psu, may be able to use that ground line |
+| 7    | pwr    | power    | provides power to keyboard power led to indicate amiga is on/audio filter status |
+| 8    | drv    | drive    | indicates floppy drive activity |
+
 ## what needs to be finished?
 
 near:
