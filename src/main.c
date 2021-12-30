@@ -19,7 +19,7 @@
 
 #include "tusb_config.h"
 
-// defined within hid_app.c
+// defined within usb_hid.c
 extern void hid_app_task(void);
 
 // welcome message
