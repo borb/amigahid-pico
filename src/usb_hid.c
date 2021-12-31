@@ -201,6 +201,12 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
     for (pos = 0; pos < 6; pos++) {
         if (report->keycode[pos] && !key_pressed(&last_report, report->keycode[pos])) {
             // this is a new keypress; pass on to the amiga as a down event
+#ifndef MENU_IS_RAMIGA
+            // ignore menu
+            if (report->keycode[pos] == HID_KEY_APPLICATION)
+                continue;
+#endif
+
             printf("[AMIGA] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
             amiga_send(mapHidToAmiga[report->keycode[pos]], false);
 
@@ -209,6 +215,11 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
 
         if (last_report.keycode[pos] && !key_pressed(report, last_report.keycode[pos])) {
             // key has been released; send "up" code to amiga
+#ifndef MENU_IS_RAMIGA
+            // ignore menu
+            if (last_report.keycode[pos] == HID_KEY_APPLICATION)
+                continue;
+#endif
             printf("[AMIGA] sending key up (amiga: %02x, hid: %02x)\n", mapHidToAmiga[last_report.keycode[pos]], last_report.keycode[pos]);
             amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
         }
@@ -259,7 +270,17 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
             amiga_send(AMIGA_LAMIGA, true);
         }
 
-        // menu is mapped to RAMIGA right now; @todo in future, may support menu or rgui
+#ifndef MENU_IS_RAMIGA
+        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
+            printf("[AMIGA] right gui pressed, sending right amiga down\n");
+            amiga_send(AMIGA_RAMIGA, false);
+        }
+        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
+            printf("[AMIGA] right gui released, sending right amiga up\n");
+            amiga_send(AMIGA_RAMIGA, true);
+        }
+#endif
+
     }
 
     last_report = *report;
