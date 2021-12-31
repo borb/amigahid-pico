@@ -64,8 +64,8 @@ open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. c
 near:
 * schematic
 * "reset warning" code and handshaking logic
-* ctrl-amiga-amiga isn't handled (yet)
 * error handling
+* caps lock led
 * fix or find workaround for tusb bugs (never works when `-DDEBUG` is set, often doesn't work at all until several restarts)
 
 far:

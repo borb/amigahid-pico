@@ -40,14 +40,6 @@ void amiga_assert_reset();
 void amiga_release_reset();
 
 /**
- * @brief Check for keyboard reset combination
- *
- * @param len   Length of keyboard press buffer
- * @param buf   Keyboard keycode buffer
- */
-bool amiga_trinity_check(uint8_t len, uint8_t *buf);
-
-/**
  * @brief Regular jobs to run whilst passing through the event check loop;
  *        keep host maintained so that it believes a keyboard is still
  *        attached

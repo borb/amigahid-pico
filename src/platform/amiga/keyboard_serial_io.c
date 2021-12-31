@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -80,9 +81,35 @@ void amiga_init()
 void amiga_send(uint8_t keycode, bool up)
 {
     uint8_t bit_position, bit_mask = 0x80, sendcode;
+    static uint8_t trinity_before = 0, trinity_now = 0;
+    bool caps_lock = false;
 
     if (keycode == AMIGA_UNKNOWN)
         return; // cowardly refuse to send an unknown scancode to the amiga
+
+    // we don't care about caps lock coming up; ignore it
+    if ((keycode == AMIGA_CAPSLOCK) && up)
+        return;
+
+    // check for caps lock going down and toggle; rewrite the 'up' parameter
+    if (keycode == AMIGA_CAPSLOCK) {
+        // amiga caps lock is odd; when it's on, it sends down code but no up, and vice versa when it comes off
+        up = caps_lock;
+        caps_lock = !caps_lock;
+
+        // @todo caps led set_report, needs to be done in usb_hid.c
+        printf("[AMIGA] caps lock %s\n", caps_lock ? "ON" : "OFF");
+    }
+
+    trinity_before = trinity_now;
+    if ((keycode == AMIGA_CTRL) || (keycode == AMIGA_LAMIGA) || (keycode == AMIGA_RAMIGA))
+        trinity_now += (up == false) ? 1 : -1;
+
+    if ((trinity_before < 3) && (trinity_now >= 3))
+        amiga_assert_reset();
+
+    if ((trinity_now <= 3) && (trinity_before >=3))
+        amiga_release_reset();
 
     // copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
@@ -116,17 +143,14 @@ void amiga_send(uint8_t keycode, bool up)
 
 void amiga_assert_reset()
 {
+    printf("[AMIGA] *** RESET BEING ASSERTED ***\n");
     gpio_put(PIN_AMIGA_RST, 0);
 }
 
 void amiga_release_reset()
 {
+    printf("[AMIGA] *** RESET BEING RELEASED ***\n");
     gpio_put(PIN_AMIGA_RST, 1);
-}
-
-bool amiga_trinity_check(uint8_t len, uint8_t *buf)
-{
-    return false;
 }
 
 void amiga_service()

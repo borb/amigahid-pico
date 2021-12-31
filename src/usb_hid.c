@@ -213,8 +213,6 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
             amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
         }
 
-        // @todo caps lock not currently handled; avr-amigahid didn't handle it nicely. would be nice to clean up.
-
         // check modifier state
         if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
             printf("[AMIGA] left alt pressed, sending left alt down\n");
