@@ -55,6 +55,10 @@ all signals are active low.
 | 7    | pwr    | power    | provides power to keyboard power led to indicate amiga is on/audio filter status |
 | 8    | drv    | drive    | indicates floppy drive activity |
 
+## configuration
+
+open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. comment and uncomment as needed.
+
 ## what needs to be finished?
 
 near:
