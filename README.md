@@ -14,6 +14,38 @@ amigahid was written for the avr and specifically, the max3421e usb host control
 
 no idea.
 
+## building
+
+prior to installation, ensure you have cmake, gnu make and gcc targetted to arm-none-eabi. you should be able to find these in debian. homebrew in macos has a cask for prebuilt gcc 10 binaries from arm. under windows, you're probably best off using wsl.
+
+clone the repository. once cloned, you'll need to initialise the submodule for the pico sdk.
+
+```shell
+$ git submodule update --init --recursive
+```
+
+the tinyusb component of the pico-sdk has a lot of its own submodules so this could take some time.
+
+when it's ready, start cmake off:
+
+```shell
+$ cmake -B build/ -S .
+```
+
+then build:
+
+```shell
+$ cd build && make
+```
+
+the resulting binaries will be in `build/src/` once built.
+
+## installing on a pi pico (or similar) board
+
+you have two options. swd or bootsel. swd will require usage of a raspberry pi (or pi pico with swd shim code installed), and you can flash the binary via openocd.
+
+the easiest option is bootsel: take a powered down pico, hold the bootsel button and attach a micro usb cable. copy the `amigahid-pico.uf2` file from `build/src/` to the mounted usb storage volume. the pico will spontaneously disconnect, and when it comes back, it will be running the amigahid-pico code. disconnect usb and attach an otg adapter.
+
 ## how do i attach this to my amiga?
 
 please be patient; phase one is keyboard and this will be a four-wire attachment (five including 5v).
