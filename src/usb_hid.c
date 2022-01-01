@@ -223,65 +223,64 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
             printf("[AMIGA] sending key up (amiga: %02x, hid: %02x)\n", mapHidToAmiga[last_report.keycode[pos]], last_report.keycode[pos]);
             amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
         }
+    }
 
-        // check modifier state
-        if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-            printf("[AMIGA] left alt pressed, sending left alt down\n");
-            amiga_send(AMIGA_LALT, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-            printf("[AMIGA] left alt released, sending left alt up\n");
-            amiga_send(AMIGA_LALT, true);
-        }
+    // check modifier state
+    if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
+        printf("[AMIGA] left alt pressed, sending left alt down\n");
+        amiga_send(AMIGA_LALT, false);
+    }
+    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
+        printf("[AMIGA] left alt released, sending left alt up\n");
+        amiga_send(AMIGA_LALT, true);
+    }
 
-        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-            printf("[AMIGA] right alt pressed, sending right alt down\n");
-            amiga_send(AMIGA_RALT, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-            printf("[AMIGA] right alt released, sending right alt up\n");
-            amiga_send(AMIGA_RALT, true);
-        }
+    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
+        printf("[AMIGA] right alt pressed, sending right alt down\n");
+        amiga_send(AMIGA_RALT, false);
+    }
+    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
+        printf("[AMIGA] right alt released, sending right alt up\n");
+        amiga_send(AMIGA_RALT, true);
+    }
 
-        if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-            printf("[AMIGA] left shift pressed, sending left shift down\n");
-            amiga_send(AMIGA_LSHIFT, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-            printf("[AMIGA] left shift released, sending left shift up\n");
-            amiga_send(AMIGA_LSHIFT, true);
-        }
+    if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
+        printf("[AMIGA] left shift pressed, sending left shift down\n");
+        amiga_send(AMIGA_LSHIFT, false);
+    }
+    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
+        printf("[AMIGA] left shift released, sending left shift up\n");
+        amiga_send(AMIGA_LSHIFT, true);
+    }
 
-        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-            printf("[AMIGA] right shift pressed, sending right shift down\n");
-            amiga_send(AMIGA_RSHIFT, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-            printf("[AMIGA] right shift released, sending right shift up\n");
-            amiga_send(AMIGA_RSHIFT, true);
-        }
+    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+        printf("[AMIGA] right shift pressed, sending right shift down\n");
+        amiga_send(AMIGA_RSHIFT, false);
+    }
+    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+        printf("[AMIGA] right shift released, sending right shift up\n");
+        amiga_send(AMIGA_RSHIFT, true);
+    }
 
-        if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-            printf("[AMIGA] left gui pressed, sending left amiga down\n");
-            amiga_send(AMIGA_LAMIGA, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-            printf("[AMIGA] left gui released, sending left amiga up\n");
-            amiga_send(AMIGA_LAMIGA, true);
-        }
+    if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
+        printf("[AMIGA] left gui pressed, sending left amiga down\n");
+        amiga_send(AMIGA_LAMIGA, false);
+    }
+    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
+        printf("[AMIGA] left gui released, sending left amiga up\n");
+        amiga_send(AMIGA_LAMIGA, true);
+    }
 
 #ifndef MENU_IS_RAMIGA
-        if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-            printf("[AMIGA] right gui pressed, sending right amiga down\n");
-            amiga_send(AMIGA_RAMIGA, false);
-        }
-        if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-            printf("[AMIGA] right gui released, sending right amiga up\n");
-            amiga_send(AMIGA_RAMIGA, true);
-        }
-#endif
-
+    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
+        printf("[AMIGA] right gui pressed, sending right amiga down\n");
+        amiga_send(AMIGA_RAMIGA, false);
     }
+    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
+        printf("[AMIGA] right gui released, sending right amiga up\n");
+        amiga_send(AMIGA_RAMIGA, true);
+    }
+#endif
 
     last_report = *report;
 }
