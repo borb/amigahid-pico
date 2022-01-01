@@ -6,6 +6,8 @@ amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) p
 
 **this is a work in progress.** if it builds, that's useful.
 
+![alpha rev 1 pcb](./images/board-alpha-rev-1.png)
+
 ## why?
 
 amigahid was written for the avr and specifically, the max3421e usb host controller attached to the avr. the rp2040 combines an on-the-go usb controller with a dual-core cortex m0 cpu, and independant state machines for gpio; in effect, hid output events can be farmed off to a small routine and the processor can go back to processing other input from additional devices. this opens the possibility of handling many different hid devices concurrently (keyboard, mouse, game controller, etc.) without devoting significant time to converting the output signal to the destination hardware requirements.
