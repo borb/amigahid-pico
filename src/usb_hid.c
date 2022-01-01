@@ -220,7 +220,6 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
             if (last_report.keycode[pos] == HID_KEY_APPLICATION)
                 continue;
 #endif
-            printf("[AMIGA] sending key up (amiga: %02x, hid: %02x)\n", mapHidToAmiga[last_report.keycode[pos]], last_report.keycode[pos]);
             amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
         }
     }

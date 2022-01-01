@@ -85,7 +85,7 @@ void amiga_send(uint8_t keycode, bool up)
     static bool caps_lock = false;
 
     if (keycode == AMIGA_UNKNOWN) {
-        printf("[AMIGA] cowardly refusing to send 0xff to the amiga\n");
+        printf("[AMIGA] cowardly refusing to send $ff to the amiga\n");
         return; // cowardly refuse to send an unknown scancode to the amiga
     }
 
@@ -112,6 +112,8 @@ void amiga_send(uint8_t keycode, bool up)
 
     if ((trinity_now <= 3) && (trinity_before >=3))
         amiga_release_reset();
+
+    printf("[AMIGA] proceeding to send keycode to amiga - state %s, code $%02x\n", up ? "UP" : "DOWN", keycode);
 
     // copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
