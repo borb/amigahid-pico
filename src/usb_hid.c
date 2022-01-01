@@ -226,6 +226,19 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
     }
 
     // check modifier state
+    if (((report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
+        || ((report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
+    ) {
+        printf("[AMIGA] ctrl pressed, sending ctrl down\n");
+        amiga_send(AMIGA_CTRL, false);
+    }
+    if ((!(report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
+        || (!(report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
+    ) {
+        printf("[AMIGA] ctrl released, sending ctrl up\n");
+        amiga_send(AMIGA_CTRL, true);
+    }
+
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
         printf("[AMIGA] left alt pressed, sending left alt down\n");
         amiga_send(AMIGA_LALT, false);
