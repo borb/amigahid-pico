@@ -66,9 +66,9 @@ the intention here is to align to the amiga 500's keyboard header layout; in pro
 
 | pin# | signal     | meaning | notes |
 |------|------------|---------|-------|
-| 14   | amiga kclk | clock   |       |
+| 14   | amiga res  | reset   |       |
 | 15   | amiga kdat | data    |       |
-| 16   | amiga res  | reset   |       |
+| 16   | amiga clk  | clock   |       |
 | 17   | \<unused\> |         |       |
 | 18   | gnd        | ground  |       |
 
