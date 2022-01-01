@@ -97,6 +97,7 @@ open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. c
 
 near:
 * schematic
+    * the current pcb design in the kicad directory could do with being two-sided and having some ground planes to inhibit noise; this is especially true of the pico's ground pins, of which only two are connected
 * "reset warning" code and handshaking logic
 * error handling
 * caps lock led
