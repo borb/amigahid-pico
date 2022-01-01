@@ -82,7 +82,7 @@ void amiga_send(uint8_t keycode, bool up)
 {
     uint8_t bit_position, bit_mask = 0x80, sendcode;
     static uint8_t trinity_before = 0, trinity_now = 0;
-    bool caps_lock = false;
+    static bool caps_lock = false;
 
     if (keycode == AMIGA_UNKNOWN)
         return; // cowardly refuse to send an unknown scancode to the amiga
