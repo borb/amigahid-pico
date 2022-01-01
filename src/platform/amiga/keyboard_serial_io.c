@@ -84,8 +84,10 @@ void amiga_send(uint8_t keycode, bool up)
     static uint8_t trinity_before = 0, trinity_now = 0;
     static bool caps_lock = false;
 
-    if (keycode == AMIGA_UNKNOWN)
+    if (keycode == AMIGA_UNKNOWN) {
+        printf("[AMIGA] cowardly refusing to send 0xff to the amiga\n");
         return; // cowardly refuse to send an unknown scancode to the amiga
+    }
 
     // we don't care about caps lock coming up; ignore it
     if ((keycode == AMIGA_CAPSLOCK) && up)
