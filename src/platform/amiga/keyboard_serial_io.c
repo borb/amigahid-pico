@@ -81,8 +81,7 @@ void amiga_init()
 void amiga_send(uint8_t keycode, bool up)
 {
     uint8_t bit_position, bit_mask = 0x80, sendcode;
-    static uint8_t trinity_before = 0, trinity_now = 0;
-    static bool caps_lock = false;
+    static bool caps_lock = false, ctrl = false, lamiga = false, ramiga = false, in_reset = false;
 
     if (keycode == AMIGA_UNKNOWN) {
         printf("[AMIGA] cowardly refusing to send $ff to the amiga\n");
@@ -103,15 +102,22 @@ void amiga_send(uint8_t keycode, bool up)
         printf("[AMIGA] caps lock %s\n", caps_lock ? "ON" : "OFF");
     }
 
-    trinity_before = trinity_now;
-    if ((keycode == AMIGA_CTRL) || (keycode == AMIGA_LAMIGA) || (keycode == AMIGA_RAMIGA))
-        trinity_now += (up == false) ? 1 : -1;
+    if (keycode == AMIGA_CTRL)
+        ctrl = !up;
+    if (keycode == AMIGA_LAMIGA)
+        lamiga = !up;
+    if (keycode == AMIGA_RAMIGA)
+        ramiga = !up;
 
-    if ((trinity_before < 3) && (trinity_now >= 3))
+    if ((ctrl && lamiga && ramiga) && !in_reset) {
+        in_reset = true;
         amiga_assert_reset();
+    }
 
-    if ((trinity_now <= 3) && (trinity_before >=3))
+    if (in_reset && !(ctrl && lamiga && ramiga)) {
+        in_reset = false;
         amiga_release_reset();
+    }
 
     printf("[AMIGA] proceeding to send keycode to amiga - state %s, code $%02x\n", up ? "UP" : "DOWN", keycode);
 
