@@ -37,7 +37,7 @@ static struct _hid_info
 } hid_info[CFG_TUH_HID];
 
 static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
-static void handle_event_keyboard(hid_keyboard_report_t const *report);
+static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report);
 
 void hid_app_task(void)
 {
@@ -100,7 +100,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
     switch (hid_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:
-            handle_event_keyboard((hid_keyboard_report_t const *) report);
+            handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *) report);
             break;
 
         default:
@@ -177,7 +177,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
         switch (report_info->usage) {
             case HID_USAGE_DESKTOP_KEYBOARD:
                 // keyboard event; let's hope it appears as a boot proto event or else this will break
-                handle_event_keyboard((hid_keyboard_report_t const *) report);
+                handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *) report);
                 break;
 
             default:
@@ -191,7 +191,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
  *
  * @param report  Address of hid_keyboard_report_t structure of current keyboard event (boot proto?)
  */
-static void handle_event_keyboard(hid_keyboard_report_t const *report)
+static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report)
 {
     // keep hold of older key event reports; init empty keyboard report
     static hid_keyboard_report_t last_report = { 0, 0, {0} };
