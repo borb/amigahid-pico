@@ -22,6 +22,14 @@
 void amiga_init();
 
 /**
+ * @brief get the caps lock status
+ *
+ * @return true     Caps lock is on
+ * @return false    Caps lock is off
+ */
+bool amiga_caps_lock();
+
+/**
  * @brief Send a keycode to the Amiga
  *
  * @param keycode   Keycode to send to the host

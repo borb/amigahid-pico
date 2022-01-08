@@ -34,6 +34,9 @@ enum SYNC_STATE { IDLE, SYNC };
 volatile uint8_t sync_state = IDLE;
 volatile bool clock_timer_fired = false;
 
+// caps lock will be read by the hid loop
+bool caps_lock = false;
+
 // _.-._.-._ @todo i've not been doing sync correctly for sooooooo long; fix/remove? -._.-._.-
 int64_t sync_timer_cb(alarm_id_t id, void *user_data)
 {
@@ -78,10 +81,15 @@ void amiga_init()
     // fin.
 }
 
+bool amiga_caps_lock()
+{
+    return caps_lock;
+}
+
 void amiga_send(uint8_t keycode, bool up)
 {
     uint8_t bit_position, bit_mask = 0x80, sendcode;
-    static bool caps_lock = false, ctrl = false, lamiga = false, ramiga = false, in_reset = false;
+    static bool ctrl = false, lamiga = false, ramiga = false, in_reset = false;
 
     if (keycode == AMIGA_UNKNOWN) {
         printf("[AMIGA] cowardly refusing to send $ff to the amiga\n");

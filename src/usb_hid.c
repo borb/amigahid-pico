@@ -195,7 +195,7 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
 {
     // keep hold of older key event reports; init empty keyboard report
     static hid_keyboard_report_t last_report = { 0, 0, {0} };
-    uint8_t pos;
+    uint8_t pos, leds = 0;
 
     // check to see if a keypress is a new keypress or in the last report
     for (pos = 0; pos < 6; pos++) {
@@ -293,6 +293,17 @@ static void handle_event_keyboard(hid_keyboard_report_t const *report)
         amiga_send(AMIGA_RAMIGA, true);
     }
 #endif
+
+    // @todo does not work
+    // if (amiga_caps_lock()) {
+    //     printf("[AMIGA] turning caps lock led on\n");
+    //     leds = KEYBOARD_LED_CAPSLOCK;
+    //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
+    // } else {
+    //     printf("[AMIGA] turning caps lock led off\n");
+    //     leds = 0;
+    //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
+    // }
 
     last_report = *report;
 }
