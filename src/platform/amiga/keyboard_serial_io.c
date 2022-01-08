@@ -132,7 +132,7 @@ void amiga_send(uint8_t keycode, bool up)
     // copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
     sendcode <<= 1;
-    if (keycode & 0x80)
+    if (up || (keycode & 0x80))
         sendcode |= 1;
 
     for (bit_position = 0; bit_position < 8; bit_position++) {
