@@ -98,7 +98,7 @@ open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. c
 ## roadmap
 
 * tinyusb has some unfortunate stability issues on the rp2040/pico, not least limited to:
-    * device removal
+    * device removal/reinsertion (either or both are problematic)
     * timing-related stability (e.g. debug messages over uart can throw out usb response timing)
     * caps lock led via `tuh_hid_set_report()` plainly _does not work_ and in some cases actaully causes a stack panic
     * no functioning usb hub support, meaning unless you have a multiple endpoint single usb device (e.g. combined wireless keyboard and mouse) then at least in the short term, this will be single-device
