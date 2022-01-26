@@ -56,21 +56,21 @@ the intention is to provide a board design which will simplify connection to the
 
 the amiga 600 and 1200 have differing keyboard connection arrangements to other amigas, in that the keyboard controller is mounted to the system board rather than a keyboard-local controller board. the 6502-alike mcu will need to be "tapped" and deactivated so that it does not interfere with keyboard communication.
 
-joystick connection will either have to go to the db9 ports, or to the serial shifter input on the denise chip (alice on aga machines). buttons are fed into one of the cia chips. yes, that's right, a complete input replacement will require tendrils everywhere.
+joystick connection will either have to go to the db9 ports, or to the multiplexer input on the denise chip (alice on aga machines). buttons are fed into one of the cia chips. yes, that's right, a complete input replacement will require tendrils everywhere.
 
 you'll need a level shifter at the moment. pick your favourite and try it. because of this ambiguity i can't give you detailed instructions of how to attach that shifter.
 
 pico pins:
 
-the intention here is to align to the amiga 500's keyboard header layout; in proto, i'd like to lay a txs0108/mosfet shifter over the headers and solder the hv side to an amiga attachment ribbon.
+the intention here is to align to the amiga 500's keyboard header layout.
 
 | pin# | signal     | meaning | notes |
 |------|------------|---------|-------|
-| 14   | amiga res  | reset   |       |
-| 15   | amiga kdat | data    |       |
-| 16   | amiga clk  | clock   |       |
-| 17   | \<unused\> |         |       |
-| 18   | gnd        | ground  |       |
+| 16   | amiga clk  | clock   | gp12  |
+| 15   | amiga kdat | data    | gp11  |
+| 14   | amiga res  | reset   | gp10  |
+
+use any ground pin; the above pins will have to be fed into a level shifter so find a pin which is convenient. it's probably quite practical to use the same ground connection as the txs/mosfet shifter.
 
 amiga 500 keyboard header:
 
@@ -89,29 +89,47 @@ all signals are active low.
 | 7    | pwr    | power    | provides power to keyboard power led to indicate amiga is on/audio filter status |
 | 8    | drv    | drive    | indicates floppy drive activity |
 
+7 and 8 are not connected to the pico in any way, so you may want to investigate another way of indicating floppy drive and power status.
+
 ## configuration
 
 open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. comment and uncomment as needed.
 
-## what needs to be finished?
+## roadmap
 
-near:
-* schematic
-    * the current pcb design in the kicad directory could do with being two-sided and having some ground planes to inhibit noise; this is especially true of the pico's ground pins, of which only two are connected
-* "reset warning" code and handshaking logic
-* error handling
-* caps lock led
-* fix or find workaround for tusb bugs (never works when `-DDEBUG` is set, often doesn't work at all until several restarts)
+* tinyusb has some unfortunate stability issues on the rp2040/pico, not least limited to:
+    * device removal
+    * timing-related stability (e.g. debug messages over uart can throw out usb response timing)
+    * caps lock led via `tuh_hid_set_report()` plainly _does not work_ and in some cases actaully causes a stack panic
+    * no functioning usb hub support, meaning unless you have a multiple endpoint single usb device (e.g. combined wireless keyboard and mouse) then at least in the short term, this will be single-device
 
-far:
-* mouse
-* joystick
-* non-us layouts (i don't currently own any non us or gb layout keyboards)
+* quadrature mouse emulation
 
-wherever you are:
-* keyboard is put into hidbp mode which definitely has the six-key limit problem, potentially may not work with keyboards which don't support hidbp (if it doesn't work in bios/uefi it probably won't work here)
-* analogue sticks? thinking something opamp something something to convert analogue >=3.3v levels to >=5v levels for pot inputs
-* what about... not amigas? i mean, like, work for other retro systems
+* joystick emulation
+    * remappable 'up' to support button jumping
+    * cd32 pad support via serial shifter
+    * amiga controller ports each have three bidirectional pins, opening up the potential for an amiga-side control panel through the controller port
+
+* status display (ssd1306 or similar)
+
+* investigation of keymap support (non us/gb layouts)
+
+* amiga reset warning as per amiga developer cd 2.1
+
+* finalise pcb design:
+    * go double sided
+    * ground plane to reduce signal noise
+    * add controller pin mapping
+
+* potential for non-hidbp mode
+    * hidbp is limited to six concurrent keypresses - itself, not a major issue, but if this could be changed to full hid mode that would be ideal
+
+* analogue sticks via opamp? i've never seen any amiga titles which support analogue sticks
+
+* potential for non-amiga support? many systems used atari-style joysticks, though oddly never the pc
+
+* gotek control? eliminate the need for rotary encoders, etc., and supplant the difficult to use microswitches
+
 ## license
 
 on the fence at the moment, but the current license choice is Eclipse Public License 2.0 (EPL-2.0).
