@@ -22,6 +22,7 @@
 #include "tusb_config.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
+#include "util/output.h"
 
 // maximum number of reports per hid device
 #define MAX_REPORT 4
@@ -59,7 +60,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    printf("[PLUG] device %02x:%02x connected, type '%s'\n", dev_addr, instance, hid_protocol_label[hid_protocol]);
+    ahprintf("[PLUG] device %02x:%02x connected, type '%s'\n", dev_addr, instance, hid_protocol_label[hid_protocol]);
 
     // this part doesn't entirely make sense to me; hid devices come in two modes, boot protocol and report;
     // as i understand it, boot proto is intended for simplistic software such as bios which don't want to
@@ -67,11 +68,11 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
     // this might be number of interfaces on a device (think wireless kbd+mouse receiver). maybe. speculation.
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-        printf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
+        ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
     }
 
     if (!tuh_hid_receive_report(dev_addr, instance)) {
-        printf("[PLUG] warning! report request failed; delayed initialisation?\n");
+        ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
     }
 }
 
@@ -83,7 +84,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
  */
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
-    printf("[PLUG] device %02x:%02x disconnected\n", dev_addr, instance);
+    ahprintf("[PLUG] device %02x:%02x disconnected\n", dev_addr, instance);
 }
 
 /**
@@ -112,7 +113,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
     // continue to request to receive report
     if (!tuh_hid_receive_report(dev_addr, instance))
-        printf("[ERROR] unable to receive hid event report\n");
+        ahprintf("[ERROR] unable to receive hid event report\n");
 }
 
 /**
@@ -168,7 +169,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
     }
 
     if (!report_info) {
-        printf("[ERROR] report event occurred but event was neither solo nor composite; broken hid implementation on device?\n");
+        ahprintf("[ERROR] report_info pointer was not set during process_report(), value: $%x, report_count was %d\n", report_info, report_count);
         return;
     }
 
@@ -207,7 +208,7 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
                 continue;
 #endif
 
-            printf("[AMIGA] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
+            ahprintf("[AMIGA] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
             amiga_send(mapHidToAmiga[report->keycode[pos]], false);
 
             // @todo trinity (reboot combination) checks
@@ -228,79 +229,79 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
     if (((report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
         || ((report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
     ) {
-        printf("[AMIGA] ctrl pressed, sending ctrl down\n");
+        ahprintf("[AMIGA] ctrl pressed, sending ctrl down\n");
         amiga_send(AMIGA_CTRL, false);
     }
     if ((!(report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
         || (!(report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
     ) {
-        printf("[AMIGA] ctrl released, sending ctrl up\n");
+        ahprintf("[AMIGA] ctrl released, sending ctrl up\n");
         amiga_send(AMIGA_CTRL, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        printf("[AMIGA] left alt pressed, sending left alt down\n");
+        ahprintf("[AMIGA] left alt pressed, sending left alt down\n");
         amiga_send(AMIGA_LALT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        printf("[AMIGA] left alt released, sending left alt up\n");
+        ahprintf("[AMIGA] left alt released, sending left alt up\n");
         amiga_send(AMIGA_LALT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        printf("[AMIGA] right alt pressed, sending right alt down\n");
+        ahprintf("[AMIGA] right alt pressed, sending right alt down\n");
         amiga_send(AMIGA_RALT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        printf("[AMIGA] right alt released, sending right alt up\n");
+        ahprintf("[AMIGA] right alt released, sending right alt up\n");
         amiga_send(AMIGA_RALT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        printf("[AMIGA] left shift pressed, sending left shift down\n");
+        ahprintf("[AMIGA] left shift pressed, sending left shift down\n");
         amiga_send(AMIGA_LSHIFT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        printf("[AMIGA] left shift released, sending left shift up\n");
+        ahprintf("[AMIGA] left shift released, sending left shift up\n");
         amiga_send(AMIGA_LSHIFT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        printf("[AMIGA] right shift pressed, sending right shift down\n");
+        ahprintf("[AMIGA] right shift pressed, sending right shift down\n");
         amiga_send(AMIGA_RSHIFT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        printf("[AMIGA] right shift released, sending right shift up\n");
+        ahprintf("[AMIGA] right shift released, sending right shift up\n");
         amiga_send(AMIGA_RSHIFT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        printf("[AMIGA] left gui pressed, sending left amiga down\n");
+        ahprintf("[AMIGA] left gui pressed, sending left amiga down\n");
         amiga_send(AMIGA_LAMIGA, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        printf("[AMIGA] left gui released, sending left amiga up\n");
+        ahprintf("[AMIGA] left gui released, sending left amiga up\n");
         amiga_send(AMIGA_LAMIGA, true);
     }
 
 #ifndef MENU_IS_RAMIGA
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        printf("[AMIGA] right gui pressed, sending right amiga down\n");
+        ahprintf("[AMIGA] right gui pressed, sending right amiga down\n");
         amiga_send(AMIGA_RAMIGA, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        printf("[AMIGA] right gui released, sending right amiga up\n");
+        ahprintf("[AMIGA] right gui released, sending right amiga up\n");
         amiga_send(AMIGA_RAMIGA, true);
     }
 #endif
 
     // @todo does not work
     // if (amiga_caps_lock()) {
-    //     printf("[AMIGA] turning caps lock led on\n");
+    //     ahprintf("[AMIGA] turning caps lock led on\n");
     //     leds = KEYBOARD_LED_CAPSLOCK;
     //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
     // } else {
-    //     printf("[AMIGA] turning caps lock led off\n");
+    //     ahprintf("[AMIGA] turning caps lock led off\n");
     //     leds = 0;
     //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
     // }

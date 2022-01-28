@@ -10,10 +10,11 @@
 
 #include "keyboard_serial_io.h"
 #include "keyboard.h"
+#include "keyboard.pio.h" // generated at compile time
+#include "util/output.h"
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -92,7 +93,7 @@ void amiga_send(uint8_t keycode, bool up)
     static bool ctrl = false, lamiga = false, ramiga = false, in_reset = false;
 
     if (keycode == AMIGA_UNKNOWN) {
-        printf("[AMIGA] cowardly refusing to send $ff to the amiga\n");
+        ahprintf("[AMIGA] cowardly refusing to send $ff to the amiga\n");
         return; // cowardly refuse to send an unknown scancode to the amiga
     }
 
@@ -107,7 +108,7 @@ void amiga_send(uint8_t keycode, bool up)
         caps_lock = !caps_lock;
 
         // @todo caps led set_report, needs to be done in usb_hid.c
-        printf("[AMIGA] caps lock %s\n", caps_lock ? "ON" : "OFF");
+        ahprintf("[AMIGA] caps lock %s\n", caps_lock ? "ON" : "OFF");
     }
 
     if (keycode == AMIGA_CTRL)
@@ -127,7 +128,7 @@ void amiga_send(uint8_t keycode, bool up)
         amiga_release_reset();
     }
 
-    printf("[AMIGA] proceeding to send keycode to amiga - state %s, code $%02x\n", up ? "UP" : "DOWN", keycode);
+    ahprintf("[AMIGA] proceeding to send keycode to amiga - state %s, code $%02x\n", up ? "UP" : "DOWN", keycode);
 
     // copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
@@ -161,13 +162,13 @@ void amiga_send(uint8_t keycode, bool up)
 
 void amiga_assert_reset()
 {
-    printf("[AMIGA] *** RESET BEING ASSERTED ***\n");
+    ahprintf("[AMIGA] *** RESET BEING ASSERTED ***\n");
     gpio_put(PIN_AMIGA_RST, 0);
 }
 
 void amiga_release_reset()
 {
-    printf("[AMIGA] *** RESET BEING RELEASED ***\n");
+    ahprintf("[AMIGA] *** RESET BEING RELEASED ***\n");
     gpio_put(PIN_AMIGA_RST, 1);
 }
 

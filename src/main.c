@@ -12,10 +12,8 @@
 #include "bsp/board.h"
 #include "tusb.h"
 
-// other includes
-#include <stdio.h>
-
 #include "platform/amiga/keyboard_serial_io.h"
+#include "util/output.h"
 
 #include "tusb_config.h"
 
@@ -40,7 +38,7 @@ int main(void)
     board_init();
 
     // say hello, trevor ("hello, trevor")
-    printf(welcomeText);
+    ahprintf(welcomeText);
 
     // initialise the usb stack
     // definition CFG_TUSB_RHPORT0_MODE as OPT_MODE_HOST will put the board into host mode
