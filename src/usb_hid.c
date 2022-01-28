@@ -39,6 +39,7 @@ static struct _hid_info
 
 static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
 static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report);
+static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
 
 void hid_app_task(void)
 {
@@ -101,7 +102,11 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
     switch (hid_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:
-            handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *) report);
+            handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *)report);
+            break;
+
+        case HID_ITF_PROTOCOL_MOUSE:
+            handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *)report);
             break;
 
         default:
@@ -188,9 +193,24 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 }
 
 /**
+ * Handle the mouse event sent to us.
+ *
+ * @param dev_addr  Device address of report
+ * @param instance  Instance number of reporting device
+ * @param report    Address of hid_mouse_report_t structure of current mouse event
+ */
+static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
+{
+    // bleep bloop
+    ahprintf("[X] ***mouse event*** (dev $%02x instance $%02x)\n", dev_addr, instance);
+}
+
+/**
  * Handle the keyboard event sent to us.
  *
- * @param report  Address of hid_keyboard_report_t structure of current keyboard event (boot proto?)
+ * @param dev_addr  Device address of report
+ * @param instance  Instance number of reporting device
+ * @param report    Address of hid_keyboard_report_t structure of current keyboard event (boot proto?)
  */
 static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report)
 {
