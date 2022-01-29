@@ -107,7 +107,6 @@ void amiga_send(uint8_t keycode, bool up)
         up = caps_lock;
         caps_lock = !caps_lock;
 
-        // @todo caps led set_report, needs to be done in usb_hid.c
         ahprintf("[AMIGA] caps lock %s\n", caps_lock ? "ON" : "OFF");
     }
 
