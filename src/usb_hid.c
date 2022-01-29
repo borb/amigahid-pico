@@ -230,8 +230,6 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
 
             ahprintf("[AMIGA] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
             amiga_send(mapHidToAmiga[report->keycode[pos]], false);
-
-            // @todo trinity (reboot combination) checks
         }
 
         if (last_report.keycode[pos] && !key_pressed(report, last_report.keycode[pos])) {
