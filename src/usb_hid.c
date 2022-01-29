@@ -202,7 +202,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
 {
     // bleep bloop
-    ahprintf("[X] ***mouse event*** (dev $%02x instance $%02x)\n", dev_addr, instance);
+    ahprintf("[X] ***mouse event*** (dev $%02x:$%02x)\n", dev_addr, instance);
 }
 
 /**
