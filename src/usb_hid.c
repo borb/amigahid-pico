@@ -22,6 +22,7 @@
 #include "tusb_config.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
+#include "platform/amiga/quad_mouse.h"
 #include "util/output.h"
 
 // maximum number of reports per hid device
@@ -186,6 +187,11 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
                 handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *) report);
                 break;
 
+            case HID_USAGE_DESKTOP_MOUSE:
+                // mouse event
+                handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *) report);
+                break;
+
             default:
                 break;
         }
@@ -201,8 +207,35 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
  */
 static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
 {
-    // bleep bloop
-    ahprintf("[X] ***mouse event*** (dev $%02x:$%02x)\n", dev_addr, instance);
+    static hid_mouse_report_t last_report = { 0 };
+
+    if (report == NULL) {
+        ahprintf("[hid] report was null, aborting mouse event\n");
+        return;
+    }
+
+    // have buttons changed since the last report?
+    if ((report->buttons & MOUSE_BUTTON_LEFT) && !(last_report.buttons & MOUSE_BUTTON_LEFT))
+        amiga_quad_mouse_button(AMQ_LEFT, true);
+    if (!(report->buttons & MOUSE_BUTTON_LEFT) && (last_report.buttons & MOUSE_BUTTON_LEFT))
+        amiga_quad_mouse_button(AMQ_LEFT, false);
+
+    if ((report->buttons & MOUSE_BUTTON_MIDDLE) && !(last_report.buttons & MOUSE_BUTTON_MIDDLE))
+        amiga_quad_mouse_button(AMQ_MIDDLE, true);
+    if (!(report->buttons & MOUSE_BUTTON_MIDDLE) && (last_report.buttons & MOUSE_BUTTON_MIDDLE))
+        amiga_quad_mouse_button(AMQ_MIDDLE, false);
+
+    if ((report->buttons & MOUSE_BUTTON_RIGHT) && !(last_report.buttons & MOUSE_BUTTON_RIGHT))
+        amiga_quad_mouse_button(AMQ_RIGHT, true);
+    if (!(report->buttons & MOUSE_BUTTON_RIGHT) && (last_report.buttons & MOUSE_BUTTON_RIGHT))
+        amiga_quad_mouse_button(AMQ_RIGHT, false);
+
+    // this would spam horrendously, so even when debug messages are on, this is probably... too much.
+    // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
+
+    amiga_quad_mouse_set_motion(report->x, report->y);
+
+    last_report = *report;
 }
 
 /**
@@ -228,7 +261,7 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
                 continue;
 #endif
 
-            ahprintf("[AMIGA] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
+            ahprintf("[hid] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
             amiga_send(mapHidToAmiga[report->keycode[pos]], false);
         }
 
@@ -247,79 +280,79 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
     if (((report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
         || ((report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
     ) {
-        ahprintf("[AMIGA] ctrl pressed, sending ctrl down\n");
+        ahprintf("[hid] ctrl pressed, sending ctrl down\n");
         amiga_send(AMIGA_CTRL, false);
     }
     if ((!(report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
         || (!(report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
     ) {
-        ahprintf("[AMIGA] ctrl released, sending ctrl up\n");
+        ahprintf("[hid] ctrl released, sending ctrl up\n");
         amiga_send(AMIGA_CTRL, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        ahprintf("[AMIGA] left alt pressed, sending left alt down\n");
+        ahprintf("[hid] left alt pressed, sending left alt down\n");
         amiga_send(AMIGA_LALT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        ahprintf("[AMIGA] left alt released, sending left alt up\n");
+        ahprintf("[hid] left alt released, sending left alt up\n");
         amiga_send(AMIGA_LALT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        ahprintf("[AMIGA] right alt pressed, sending right alt down\n");
+        ahprintf("[hid] right alt pressed, sending right alt down\n");
         amiga_send(AMIGA_RALT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        ahprintf("[AMIGA] right alt released, sending right alt up\n");
+        ahprintf("[hid] right alt released, sending right alt up\n");
         amiga_send(AMIGA_RALT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        ahprintf("[AMIGA] left shift pressed, sending left shift down\n");
+        ahprintf("[hid] left shift pressed, sending left shift down\n");
         amiga_send(AMIGA_LSHIFT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        ahprintf("[AMIGA] left shift released, sending left shift up\n");
+        ahprintf("[hid] left shift released, sending left shift up\n");
         amiga_send(AMIGA_LSHIFT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        ahprintf("[AMIGA] right shift pressed, sending right shift down\n");
+        ahprintf("[hid] right shift pressed, sending right shift down\n");
         amiga_send(AMIGA_RSHIFT, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        ahprintf("[AMIGA] right shift released, sending right shift up\n");
+        ahprintf("[hid] right shift released, sending right shift up\n");
         amiga_send(AMIGA_RSHIFT, true);
     }
 
     if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        ahprintf("[AMIGA] left gui pressed, sending left amiga down\n");
+        ahprintf("[hid] left gui pressed, sending left amiga down\n");
         amiga_send(AMIGA_LAMIGA, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        ahprintf("[AMIGA] left gui released, sending left amiga up\n");
+        ahprintf("[hid] left gui released, sending left amiga up\n");
         amiga_send(AMIGA_LAMIGA, true);
     }
 
 #ifndef MENU_IS_RAMIGA
     if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        ahprintf("[AMIGA] right gui pressed, sending right amiga down\n");
+        ahprintf("[hid] right gui pressed, sending right amiga down\n");
         amiga_send(AMIGA_RAMIGA, false);
     }
     if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        ahprintf("[AMIGA] right gui released, sending right amiga up\n");
+        ahprintf("[hid] right gui released, sending right amiga up\n");
         amiga_send(AMIGA_RAMIGA, true);
     }
 #endif
 
     // @todo does not work
     // if (amiga_caps_lock()) {
-    //     ahprintf("[AMIGA] turning caps lock led on\n");
+    //     ahprintf("[hid] turning caps lock led on\n");
     //     leds = KEYBOARD_LED_CAPSLOCK;
     //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
     // } else {
-    //     ahprintf("[AMIGA] turning caps lock led off\n");
+    //     ahprintf("[hid] turning caps lock led off\n");
     //     leds = 0;
     //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
     // }

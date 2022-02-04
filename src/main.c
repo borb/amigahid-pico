@@ -13,6 +13,7 @@
 #include "tusb.h"
 
 #include "platform/amiga/keyboard_serial_io.h"
+#include "platform/amiga/quad_mouse.h"
 #include "util/output.h"
 
 #include "tusb_config.h"
@@ -47,6 +48,9 @@ int main(void)
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is
     amiga_init();
+
+    // start amiga mouse emulation
+    amiga_quad_mouse_init();
 
     while (1) {
         // run host mode jobs (hotplug events, packet io callbacks)
