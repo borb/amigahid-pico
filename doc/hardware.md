@@ -24,25 +24,25 @@ the same timing-sensitive features will be required for handling mouse signallin
 
 the current pin usage of amigahid-pico within the design of the pico pcb is as follows (each signal output is passed through a txs0108 lv i/o with a 3.3v reference, 5v reference to the amiga); items in bold will be routed to the amiga:
 
-amiga | pico | pin# | pcb | pin# | pico | amiga
-------|------|------|----|------|------|------
-\- | uart tx | 1 | \<pcb\> | 40 | vbus | \-
-\- | uart rx | 2 | \<pcb\> | 39 | vsys | \-
-\- | gnd | 3 | \<pcb\> | 38 | gnd | \-
-\- | | 4 | \<pcb\> | 37 | 3.3v in | \-
-\- | | 5 | \<pcb\> | 36 | 3.3v out | \-
-\- | i2c0 data | 6 | \<pcb\> | 35 | vref | \-
-\- | i2c0 clock | 7 | \<pcb\> | 34 | | \-
-\- | gnd | 8 | \<pcb\> | 33 | gnd | \-
-mouse vq | **gp6** | 9 | \<pcb\> | 32 | **gp27** | mouse button3
-mouse hq | **gp7** | 10 | \<pcb\> | 31 | **gp26** | mouse button2
-mouse v | **gp8** | 11 | \<pcb\> | 30 | run | \-
-mouse h | **gp9** | 12 | \<pcb\> | 29 | **gp22** | mouse button1
-\- | gnd | 13 | \<pcb\> | 28 | gnd | \-
-kbreset | **gp10** | 14 | \<pcb\> | 27 | | \-
-kbdata | **gp11** | 15 | \<pcb\> | 26 | | \-
-kbclock | **gp12** | 16 | \<pcb\> | 25 | | \-
-\- | | 17 | \<pcb\> | 24 | | \-
-\- | gnd | 18 | \<pcb\> | 23 | gnd | \-
-\- | | 19 | \<pcb\> | 22 | | \-
-\- | | 20 | \<pcb\> | 21 | | \-
+amiga    | pico       | pin# | pcb     | pin# | pico     | amiga
+---------|------------|------|---------|------|----------|--------------
+\-       | uart tx    | 1    | \<pcb\> | 40   | vbus     | \-
+\-       | uart rx    | 2    | \<pcb\> | 39   | vsys     | \-
+\-       | gnd        | 3    | \<pcb\> | 38   | gnd      | \-
+\-       |            | 4    | \<pcb\> | 37   | 3.3v in  | \-
+\-       |            | 5    | \<pcb\> | 36   | 3.3v out | \-
+\-       | i2c0 data  | 6    | \<pcb\> | 35   | vref     | \-
+\-       | i2c0 clock | 7    | \<pcb\> | 34   |          | \-
+\-       | gnd        | 8    | \<pcb\> | 33   | gnd      | \-
+mouse vq | **gp6**    | 9    | \<pcb\> | 32   | **gp27** | mouse button3
+mouse hq | **gp7**    | 10   | \<pcb\> | 31   | **gp26** | mouse button2
+mouse v  | **gp8**    | 11   | \<pcb\> | 30   | run      | \-
+mouse h  | **gp9**    | 12   | \<pcb\> | 29   | **gp22** | mouse button1
+\-       | gnd        | 13   | \<pcb\> | 28   | gnd      | \-
+kbreset  | **gp10**   | 14   | \<pcb\> | 27   |          | \-
+kbdata   | **gp11**   | 15   | \<pcb\> | 26   |          | \-
+kbclock  | **gp12**   | 16   | \<pcb\> | 25   |          | \-
+\-       |            | 17   | \<pcb\> | 24   |          | \-
+\-       | gnd        | 18   | \<pcb\> | 23   | gnd      | \-
+\-       |            | 19   | \<pcb\> | 22   |          | \-
+\-       |            | 20   | \<pcb\> | 21   |          | \-
