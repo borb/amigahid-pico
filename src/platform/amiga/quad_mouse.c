@@ -51,7 +51,7 @@ void amiga_quad_mouse_init()
     gpio_init(PIN_AMIGA_MOUSE_H);
     gpio_init(PIN_AMIGA_MOUSE_V);
     gpio_init(PIN_AMIGA_MOUSE_HQ);
-    gpio_init(PIN_AMIGA_MOUSE_HQ);
+    gpio_init(PIN_AMIGA_MOUSE_VQ);
     gpio_init(PIN_AMIGA_MOUSE_B1);
     gpio_init(PIN_AMIGA_MOUSE_B2);
     gpio_init(PIN_AMIGA_MOUSE_B3);
@@ -71,7 +71,7 @@ void amiga_quad_mouse_init()
     gpio_put(PIN_AMIGA_MOUSE_H, 1);
     gpio_put(PIN_AMIGA_MOUSE_V, 1);
     gpio_put(PIN_AMIGA_MOUSE_HQ, 1);
-    gpio_put(PIN_AMIGA_MOUSE_HQ, 1);
+    gpio_put(PIN_AMIGA_MOUSE_VQ, 1);
     gpio_put(PIN_AMIGA_MOUSE_B1, 1);
     gpio_put(PIN_AMIGA_MOUSE_B2, 1);
     gpio_put(PIN_AMIGA_MOUSE_B3, 1);
@@ -139,10 +139,10 @@ void amiga_quad_mouse_motion()
                 else if (out_x > 0)
                     quad_mx_state++;
                 // fix wraparound
-                if (out_x == 255)
-                    out_x = 3;
-                else if (out_x == 4)
-                    out_x = 0;
+                if (quad_mx_state == 255)
+                    quad_mx_state = 3;
+                else if (quad_mx_state == 4)
+                    quad_mx_state = 0;
 
                 switch (quad_mx_state) {
                     case 0: gpio_put(PIN_AMIGA_MOUSE_H, 1); break;
@@ -162,10 +162,10 @@ void amiga_quad_mouse_motion()
                 else if (out_y > 0)
                     quad_my_state++;
                 // fix wraparound
-                if (out_y == 255)
-                    out_y = 3;
-                else if (out_y == 4)
-                    out_y = 0;
+                if (quad_my_state == 255)
+                    quad_my_state = 3;
+                else if (quad_my_state == 4)
+                    quad_my_state = 0;
 
                 switch (quad_my_state) {
                     case 0: gpio_put(PIN_AMIGA_MOUSE_V, 1); break;
@@ -178,7 +178,7 @@ void amiga_quad_mouse_motion()
                 if (out_y > 0) out_y--;
             }
 
-            sleep_us(375); // delay before next iteration to prevent missing state change
+            sleep_us(37500); // delay before next iteration to prevent missing state change
         }
     }
 }
