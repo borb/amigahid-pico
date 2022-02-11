@@ -62,7 +62,7 @@ void amiga_quad_mouse_init()
     gpio_set_dir(PIN_AMIGA_MOUSE_H, GPIO_OUT);
     gpio_set_dir(PIN_AMIGA_MOUSE_V, GPIO_OUT);
     gpio_set_dir(PIN_AMIGA_MOUSE_HQ, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_HQ, GPIO_OUT);
+    gpio_set_dir(PIN_AMIGA_MOUSE_VQ, GPIO_OUT);
     gpio_set_dir(PIN_AMIGA_MOUSE_B1, GPIO_OUT);
     gpio_set_dir(PIN_AMIGA_MOUSE_B2, GPIO_OUT);
     gpio_set_dir(PIN_AMIGA_MOUSE_B3, GPIO_OUT);
@@ -131,7 +131,7 @@ void amiga_quad_mouse_motion()
         x = y = 0;
         motion_flag = false;
 
-        while ((out_x != 0) && (out_y != 0) && (motion_flag == false)) {
+        while (((out_x != 0) || (out_y != 0)) && !motion_flag) {
             if (out_x != 0) {
                 // handle x-axis motion
                 if (out_x < 0)
@@ -178,7 +178,7 @@ void amiga_quad_mouse_motion()
                 if (out_y > 0) out_y--;
             }
 
-            sleep_us(37500); // delay before next iteration to prevent missing state change
+            sleep_us(300); // delay before next iteration to prevent missing state change
         }
     }
 }
