@@ -6,7 +6,7 @@ amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) p
 
 **this is a work in progress.** if it builds, that's useful.
 
-![alpha rev 1 pcb](./images/board-alpha-rev-1.png)
+![rev 2 pcb](./images/board-rev-2.png)
 
 ## why?
 
