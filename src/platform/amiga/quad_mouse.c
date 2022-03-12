@@ -44,6 +44,7 @@
 // mouse motion values, used between core0 and core1
 volatile int8_t x = 0, y = 0;
 volatile bool motion_flag = false;
+volatile uint8_t motion_divider = 2;
 
 void amiga_quad_mouse_init()
 {
@@ -111,6 +112,7 @@ void amiga_quad_mouse_motion()
     ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
     int8_t out_x, out_y;
     uint8_t quad_mx_state = 0, quad_my_state = 0;
+    bool motion_x_skip = false, motion_y_skip = false;
 
     /**
      * a little note about quadrature motion state.
@@ -132,7 +134,15 @@ void amiga_quad_mouse_motion()
         motion_flag = false;
 
         while (((out_x != 0) || (out_y != 0)) && !motion_flag) {
-            if (out_x != 0) {
+            motion_x_skip = false;
+            motion_y_skip = false;
+
+            if ((out_x % motion_divider) != 0)
+                motion_x_skip = true;
+            if ((out_y % motion_divider) != 0)
+                motion_y_skip = true;
+
+            if ((out_x != 0) && !motion_x_skip) {
                 // handle x-axis motion
                 if (out_x < 0)
                     quad_mx_state--;
@@ -150,12 +160,12 @@ void amiga_quad_mouse_motion()
                     case 2: gpio_put(PIN_AMIGA_MOUSE_H, 0); break;
                     case 3: gpio_put(PIN_AMIGA_MOUSE_HQ, 0); break;
                 }
-
-                if (out_x < 0) out_x++;
-                if (out_x > 0) out_x--;
             }
 
-            if (out_y != 0) {
+            if (out_x < 0) out_x++;
+            if (out_x > 0) out_x--;
+
+            if ((out_y != 0) && !motion_y_skip) {
                 // handle y-axis motion
                 if (out_y < 0)
                     quad_my_state--;
@@ -173,10 +183,13 @@ void amiga_quad_mouse_motion()
                     case 2: gpio_put(PIN_AMIGA_MOUSE_V, 0); break;
                     case 3: gpio_put(PIN_AMIGA_MOUSE_VQ, 0); break;
                 }
-
-                if (out_y < 0) out_y++;
-                if (out_y > 0) out_y--;
             }
+
+            if (out_y < 0) out_y++;
+            if (out_y > 0) out_y--;
+
+            //if (motion_x_skip && motion_y_skip)
+            //    continue;
 
             sleep_us(300); // delay before next iteration to prevent missing state change
         }
