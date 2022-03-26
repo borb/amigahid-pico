@@ -35,18 +35,18 @@
 // END: borrowed from tusb config
 
 // usb descriptor buffer size
-#define CFG_TUH_ENUMERATION_BUFSIZE 256
+#define CFG_TUH_ENUMERATION_BUFSIZE 512
 
 // supported devices & interfaces; tusb examples use a convention of multi-purpose
 // constants where >0 may also mean multiple endpoints on a single device
-#define CFG_TUH_HUB 1 // permit usb hubs (pico has a single port)
+#define CFG_TUH_HUB 4 // permit usb hubs (pico has a single port)
 #define CFG_TUH_CDC 0 // no serial
 #define CFG_TUH_HID 4 // keyboard/mouse/joystick; 4 endpoints maximum per device
 #define CFG_TUH_MSC 0 // no mass storage
 #define CFG_TUH_VENDOR 0 // not sure what this is but no anyway
 
 // max device support (excluding hub)
-#define CFG_TUH_DEVICE_MAX 4
+#define CFG_TUH_DEVICE_MAX 16
 
 // hid event buffer sizes
 #define CFG_TUH_HID_EPIN_BUFSIZE 64
