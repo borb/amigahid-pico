@@ -16,6 +16,24 @@ amigahid was written for the avr and specifically, the max3421e usb host control
 
 no idea.
 
+## hardware
+
+revision 2 of the board was the first successful test. this will change in the near future as some quirks were discovered during assembly.
+
+revision 1 was based around using the txs0108 bidirectional level shifter, which proved to be a mistake: whilst it worked for keyboard functionality, the voltage drop once connected to a controller port was so significant the amiga was held in reset. this would not have been an issue for big-box amigas as they have no dedicated reset line on the keyboard port, but it would have proved difficult for the amiga 500, 600 and 1200. revision 2 changed to a mosfet-centric design using the bss138; this may change in future.
+
+the pico is attached using castellated edges to pads on the surface. ensure the alignment is straight and flood the edges with solder, ensuring the solder makes contact with both the edge and the pad (check). buzz the attachment out with a multimeter to ensure it's worked and not shorted.
+
+for the amiga 500, the keyboard connector can use 2.54mm pitch sockets on the seven pin header and attach directly to the motherboard, though for simplicity of placement you may want to use short dupont wires for attachment.
+
+the programming & debug header provides serial wire debug and uart connections. you can program either via swdio or the usb port & bootsel button.
+
+the four pin i2c header is suitable for the generally available ssd1306 displays to mount directly to, assuming the pin layout is identical. the display is not currently used but will be used in future versions.
+
+attach a usb otg adapter to the pico's usb port. usb hubs are supported, but only at a single level. multiple mice and keyboards can be attached and used concurrently, allowing you to attach a keyboard for desk and one for remote usage (e.g. sofa).
+
+the controller ports mapping will change after revision 2: the assumption was made that 2x5 pin idc connectors were wired the same way as d-sub 9-pin connectors, and this was wrong. the numerical wiring works 1-2-3-4-5-6-7-8-9 vs 1-6-2-7-3-8-4-9-5, making ribbon attachment difficult in revision 2. this will be changed in revision 3.
+
 ## building
 
 prior to installation, ensure you have cmake, gnu make and gcc targetted to arm-none-eabi. you should be able to find these in debian. homebrew in macos has a cask for prebuilt gcc 10 binaries from arm. under windows, you're probably best off using wsl.
@@ -97,38 +115,30 @@ open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. c
 
 ## roadmap
 
-* tinyusb has some unfortunate stability issues on the rp2040/pico, not least limited to:
-    * device removal/reinsertion (either or both are problematic)
-    * timing-related stability (e.g. debug messages over uart can throw out usb response timing)
-    * caps lock led via `tuh_hid_set_report()` plainly _does not work_ and in some cases actaully causes a stack panic
-    * no functioning usb hub support, meaning unless you have a multiple endpoint single usb device (e.g. combined wireless keyboard and mouse) then at least in the short term, this will be single-device
-
-* quadrature mouse emulation
-
+* i2c display support
+* runtime configuration as opposed to build flags (store in flash)
+* revision 3 pcb with usb socket, 74-series bus transceiver, smaller footprint
+* keyboard leds (currently not working and unknown reason why)
+* watchdog timer
+* pio statemachine handover to reduce dependance on cpu scheduling
 * joystick emulation
-    * remappable 'up' to support button jumping
-    * cd32 pad support via serial shifter
-    * amiga controller ports each have three bidirectional pins, opening up the potential for an amiga-side control panel through the controller port
+  * cd32 pad emulation also
+* amiga configuration preference panel
+* more keymaps
+* gotek control - either i2c slave device piggybacked off of the display connector, or simulation of rotary encoder pulses
+* amiga reset warning
+* mouse wheel codes to keyboard via newmouse keycodes
+* status display via pico led
 
-* status display (ssd1306 or similar)
+crazy talk:
+* non-amiga support
+* non-hidbp support
+* analogue/paddle emulation
+* fix some tinyusb issues (hotplug, timing-related instability)
 
-* investigation of keymap support (non us/gb layouts)
-
-* amiga reset warning as per amiga developer cd 2.1
-
-* finalise pcb design:
-    * go double sided
-    * ground plane to reduce signal noise
-    * add controller pin mapping
-
-* potential for non-hidbp mode
-    * hidbp is limited to six concurrent keypresses - itself, not a major issue, but if this could be changed to full hid mode that would be ideal
-
-* analogue sticks via opamp? i've never seen any amiga titles which support analogue sticks
-
-* potential for non-amiga support? many systems used atari-style joysticks, though oddly never the pc
-
-* gotek control? eliminate the need for rotary encoders, etc., and supplant the difficult to use microswitches
+done, former roadmap items:
+* quadrature mouse emulation
+* usb hub support
 
 ## license
 

@@ -44,6 +44,21 @@
 // mouse motion values, used between core0 and core1
 volatile int8_t x = 0, y = 0;
 volatile bool motion_flag = false;
+volatile uint8_t motion_divider = 2;
+
+enum _mouse_pin_state { LOW, HIGH };
+
+void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
+{
+    if (state == LOW) {
+        gpio_set_dir(gpio, GPIO_OUT);
+        gpio_put(gpio, 0);
+        return;
+    }
+
+    // assume it's high otherwise
+    gpio_set_dir(gpio, GPIO_IN);
+}
 
 void amiga_quad_mouse_init()
 {
@@ -56,25 +71,14 @@ void amiga_quad_mouse_init()
     gpio_init(PIN_AMIGA_MOUSE_B2);
     gpio_init(PIN_AMIGA_MOUSE_B3);
 
-    // set direction (all mouse functions are output only; anecdotally, all
-    // buttons are on bidirectional contacts, and buttons 3 and 2 are pot
-    // inputs)
-    gpio_set_dir(PIN_AMIGA_MOUSE_H, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_V, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_HQ, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_VQ, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_B1, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_B2, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_MOUSE_B3, GPIO_OUT);
-
     // pins are active low, so when they are at 0 they're triggering; set all high (off)
-    gpio_put(PIN_AMIGA_MOUSE_H, 1);
-    gpio_put(PIN_AMIGA_MOUSE_V, 1);
-    gpio_put(PIN_AMIGA_MOUSE_HQ, 1);
-    gpio_put(PIN_AMIGA_MOUSE_VQ, 1);
-    gpio_put(PIN_AMIGA_MOUSE_B1, 1);
-    gpio_put(PIN_AMIGA_MOUSE_B2, 1);
-    gpio_put(PIN_AMIGA_MOUSE_B3, 1);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_H, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_V, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_B1, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_B2, HIGH);
+    _aqm_gpio_set(PIN_AMIGA_MOUSE_B3, HIGH);
 
     // start the mouse motion loop on core1
     multicore_launch_core1(amiga_quad_mouse_motion);
@@ -90,9 +94,9 @@ void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
     );
 
     switch (button) {
-        case AMQ_LEFT:      gpio_put(PIN_AMIGA_MOUSE_B1, pressed ? 0 : 1); break;
-        case AMQ_MIDDLE:    gpio_put(PIN_AMIGA_MOUSE_B3, pressed ? 0 : 1); break;
-        case AMQ_RIGHT:     gpio_put(PIN_AMIGA_MOUSE_B2, pressed ? 0 : 1); break;
+        case AMQ_LEFT:      _aqm_gpio_set(PIN_AMIGA_MOUSE_B1, pressed ? LOW : HIGH); break;
+        case AMQ_MIDDLE:    _aqm_gpio_set(PIN_AMIGA_MOUSE_B3, pressed ? LOW : HIGH); break;
+        case AMQ_RIGHT:     _aqm_gpio_set(PIN_AMIGA_MOUSE_B2, pressed ? LOW : HIGH); break;
         default:            ahprintf("[aqm] unhandled button press!\n");
     }
 }
@@ -111,6 +115,7 @@ void amiga_quad_mouse_motion()
     ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
     int8_t out_x, out_y;
     uint8_t quad_mx_state = 0, quad_my_state = 0;
+    bool motion_x_skip = false, motion_y_skip = false;
 
     /**
      * a little note about quadrature motion state.
@@ -132,7 +137,15 @@ void amiga_quad_mouse_motion()
         motion_flag = false;
 
         while (((out_x != 0) || (out_y != 0)) && !motion_flag) {
-            if (out_x != 0) {
+            motion_x_skip = false;
+            motion_y_skip = false;
+
+            if ((out_x % motion_divider) != 0)
+                motion_x_skip = true;
+            if ((out_y % motion_divider) != 0)
+                motion_y_skip = true;
+
+            if ((out_x != 0) && !motion_x_skip) {
                 // handle x-axis motion
                 if (out_x < 0)
                     quad_mx_state--;
@@ -145,17 +158,17 @@ void amiga_quad_mouse_motion()
                     quad_mx_state = 0;
 
                 switch (quad_mx_state) {
-                    case 0: gpio_put(PIN_AMIGA_MOUSE_H, 1); break;
-                    case 1: gpio_put(PIN_AMIGA_MOUSE_HQ, 1); break;
-                    case 2: gpio_put(PIN_AMIGA_MOUSE_H, 0); break;
-                    case 3: gpio_put(PIN_AMIGA_MOUSE_HQ, 0); break;
+                    case 0: _aqm_gpio_set(PIN_AMIGA_MOUSE_H, HIGH); break;
+                    case 1: _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, HIGH); break;
+                    case 2: _aqm_gpio_set(PIN_AMIGA_MOUSE_H, LOW); break;
+                    case 3: _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, LOW); break;
                 }
-
-                if (out_x < 0) out_x++;
-                if (out_x > 0) out_x--;
             }
 
-            if (out_y != 0) {
+            if (out_x < 0) out_x++;
+            if (out_x > 0) out_x--;
+
+            if ((out_y != 0) && !motion_y_skip) {
                 // handle y-axis motion
                 if (out_y < 0)
                     quad_my_state--;
@@ -168,15 +181,18 @@ void amiga_quad_mouse_motion()
                     quad_my_state = 0;
 
                 switch (quad_my_state) {
-                    case 0: gpio_put(PIN_AMIGA_MOUSE_V, 1); break;
-                    case 1: gpio_put(PIN_AMIGA_MOUSE_VQ, 1); break;
-                    case 2: gpio_put(PIN_AMIGA_MOUSE_V, 0); break;
-                    case 3: gpio_put(PIN_AMIGA_MOUSE_VQ, 0); break;
+                    case 0: _aqm_gpio_set(PIN_AMIGA_MOUSE_V, HIGH); break;
+                    case 1: _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, HIGH); break;
+                    case 2: _aqm_gpio_set(PIN_AMIGA_MOUSE_V, LOW); break;
+                    case 3: _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, LOW); break;
                 }
-
-                if (out_y < 0) out_y++;
-                if (out_y > 0) out_y--;
             }
+
+            if (out_y < 0) out_y++;
+            if (out_y > 0) out_y--;
+
+            //if (motion_x_skip && motion_y_skip)
+            //    continue;
 
             sleep_us(300); // delay before next iteration to prevent missing state change
         }
