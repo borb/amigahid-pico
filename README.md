@@ -10,7 +10,17 @@ amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) p
 
 ## why?
 
-amigahid was written for the avr and specifically, the max3421e usb host controller attached to the avr. the rp2040 combines an on-the-go usb controller with a dual-core cortex m0 cpu, and independant state machines for gpio; in effect, hid output events can be farmed off to a small routine and the processor can go back to processing other input from additional devices. this opens the possibility of handling many different hid devices concurrently (keyboard, mouse, game controller, etc.) without devoting significant time to converting the output signal to the destination hardware requirements.
+i like old computers. particularly the amiga. it was amazing when checkmate produced a modern update to the checkmate a1500 case, the a1500+ with mountings for a variety of amigas. a optional extra for the case was a mechanism for mounting the standard amiga keyboard in an external metal housing. given i had ordered a black case, having a cream and grey keyboard in a black housing seemed out of keeping with the aesthetic of this recased beast; i needed something which fit the appearance, and in this modern era, lots of keyboards which match the appearance are available.
+
+so at first i looked to the avr range of chips, for which a popular usb choice is the max3421e usb host controller. unfortunately, using commodity boards (i.e. arduino and clones), available usb "shields" are in dwindling supply, and arduino's own usb-capable arduino adk has been discontinued. this version was named amigahid, and is mostly hampered by that lack of available usb support.
+
+enter the pi pico. dual core. significantly smaller than the mega2560 and with software switchable usb otg, it was an ideal choice. except for the 3.3v signal levels. this board uses fets to handle voltage translation, though this may change to a suitable ic in future; the txs0108 and txb0108 were tested and found to be unsuitable for the amiga's power requirements.
+
+because the hardware for this is capable of so much more, the project has been extended to support mouse emulation and soon hopefully controller support (see roadmap below).
+
+the entire amiga range uses a 6502-derived keyboard mcu. it seemed fitting that this project stands as a replacement for that keyboard mcu and the connection side of things.
+
+after the big-box conversion of one of my amiga 500s, i obtained another amiga 500 with a sigificantly and irreversibly damaged keyboard. with several of my peers in the amiga community seeking replacement keyboards, it seemed obvious that this project was needed now more than ever. wouldn't you like to use your amiga with a tactile, blue-switched mechanical keyboard? i can tell you that it's a lot nicer than the stock amiga 500 keyboard.
 
 ## what is the latency of this?
 
