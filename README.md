@@ -16,25 +16,11 @@ amigahid was written for the avr and specifically, the max3421e usb host control
 
 no idea.
 
-## hardware
+## configuration
 
-revision 2 of the board was the first successful test. this will change in the near future as some quirks were discovered during assembly.
+open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. comment and uncomment as needed.
 
-revision 1 was based around using the txs0108 bidirectional level shifter, which proved to be a mistake: whilst it worked for keyboard functionality, the voltage drop once connected to a controller port was so significant the amiga was held in reset. this would not have been an issue for big-box amigas as they have no dedicated reset line on the keyboard port, but it would have proved difficult for the amiga 500, 600 and 1200. revision 2 changed to a mosfet-centric design using the bss138; this may change in future.
-
-the pico is attached using castellated edges to pads on the surface. ensure the alignment is straight and flood the edges with solder, ensuring the solder makes contact with both the edge and the pad (check). buzz the attachment out with a multimeter to ensure it's worked and not shorted.
-
-for the amiga 500, the keyboard connector can use 2.54mm pitch sockets on the seven pin header and attach directly to the motherboard, though for simplicity of placement you may want to use short dupont wires for attachment.
-
-the programming & debug header provides serial wire debug and uart connections. you can program either via swdio or the usb port & bootsel button.
-
-the four pin i2c header is suitable for the generally available ssd1306 displays to mount directly to, assuming the pin layout is identical. the display is not currently used but will be used in future versions.
-
-attach a usb otg adapter to the pico's usb port. usb hubs are supported, but only at a single level. multiple mice and keyboards can be attached and used concurrently, allowing you to attach a keyboard for desk and one for remote usage (e.g. sofa).
-
-the controller ports mapping will change after revision 2: the assumption was made that 2x5 pin idc connectors were wired the same way as d-sub 9-pin connectors, and this was wrong. the numerical wiring works 1-2-3-4-5-6-7-8-9 vs 1-6-2-7-3-8-4-9-5, making ribbon attachment difficult in revision 2. this will be changed in revision 3.
-
-## building
+## building the source code
 
 prior to installation, ensure you have cmake, gnu make and gcc targetted to arm-none-eabi. you should be able to find these in debian. homebrew in macos has a cask for prebuilt gcc 10 binaries from arm. under windows, you're probably best off using wsl.
 
@@ -68,31 +54,15 @@ the easiest option is bootsel: take a powered down pico, hold the bootsel button
 
 ## how do i attach this to my amiga?
 
-please be patient; phase one is keyboard and this will be a four-wire attachment (five including 5v).
+the board is designed to be mounted atop the amiga 500 keyboard header. mount a strip of eight 2.54mm pitch sockets with sufficient clearance from the nearby custom chips (cia, mostly). the drill holes are m3 - use some nylon supports to support the board and stop it flexing.
 
-the intention is to provide a board design which will simplify connection to the amiga, however the obstacle of how to handle game controller port connection has not been considered yet.
+for other amigas, you will need to refer to your model's keyboard socket. instead of a socket on the underside, mount 2.54mm pitch idc pin strip to the top of the board and use dupont connections to attach to the amiga in your favoured manner. most amigas except for the a1000 (which uses an rj11 connector) use some form of din plug. the signalling is identical across the entire range.
 
-the amiga 600 and 1200 have differing keyboard connection arrangements to other amigas, in that the keyboard controller is mounted to the system board rather than a keyboard-local controller board. the 6502-alike mcu will need to be "tapped" and deactivated so that it does not interfere with keyboard communication.
+the amiga 600 and 1200 have a surface mounted keyboard mcu; until a design has been put together, you can tap kclk and kdat from the chip (use an upturned plcc socket). find the pin information at [amigapcb.org](https://www.amigapcb.org/). please be **really** careful attaching to these machines.
 
-joystick connection will either have to go to the db9 ports, or to the multiplexer input on the denise chip (alice on aga machines). buttons are fed into one of the cia chips. yes, that's right, a complete input replacement will require tendrils everywhere.
+the pcb has a key for signals; only kclk, kdat, power and ground are required. reset is not required for big-box amigas, which use clock to signal reset.
 
-you'll need a level shifter at the moment. pick your favourite and try it. because of this ambiguity i can't give you detailed instructions of how to attach that shifter.
-
-pico pins:
-
-the intention here is to align to the amiga 500's keyboard header layout.
-
-| pin# | signal     | meaning | notes |
-|------|------------|---------|-------|
-| 16   | amiga clk  | clock   | gp12  |
-| 15   | amiga kdat | data    | gp11  |
-| 14   | amiga res  | reset   | gp10  |
-
-use any ground pin; the above pins will have to be fed into a level shifter so find a pin which is convenient. it's probably quite practical to use the same ground connection as the txs/mosfet shifter.
-
-amiga 500 keyboard header:
-
-if you don't have an amiga 500, this should map to an a1000/2000/3000/4000 keyboard connector. find your favourite pinout resource for this information.
+### amiga 500 keyboard header
 
 all signals are active low.
 
@@ -108,10 +78,6 @@ all signals are active low.
 | 8    | drv    | drive    | indicates floppy drive activity |
 
 7 and 8 are not connected to the pico in any way, so you may want to investigate another way of indicating floppy drive and power status.
-
-## configuration
-
-open [CMakeLists.txt](/CMakeLists.txt) and look for the configuration options. comment and uncomment as needed.
 
 ## roadmap
 
@@ -139,6 +105,28 @@ crazy talk:
 done, former roadmap items:
 * quadrature mouse emulation
 * usb hub support
+
+## errata
+
+### board revision 1
+
+revision 1 was based around using the txs0108 bidirectional level shifter, which proved to be a mistake: whilst it worked for keyboard functionality, the voltage drop once connected to a controller port was so significant the amiga was held in reset. this would not have been an issue for big-box amigas as they have no dedicated reset line on the keyboard port, but it would have proved difficult for the amiga 500, 600 and 1200.
+
+### board revision 2
+
+revision 2 of the board was the first successful test. this will change in the near future as some quirks were discovered during assembly. the design was changed to be mosfet-centric  using the bss138; this may change in future. i'd like to use the
+
+the pico is attached using castellated edges to pads on the surface. ensure the alignment is straight and flood the edges with solder, ensuring the solder makes contact with both the edge and the pad (check). buzz the attachment out with a multimeter to ensure it's worked and not shorted.
+
+for the amiga 500, the keyboard connector can use 2.54mm pitch sockets on the seven pin header and attach directly to the motherboard, though for simplicity of placement you may want to use short dupont wires for attachment.
+
+the programming & debug header provides serial wire debug and uart connections. you can program either via swdio or the usb port & bootsel button.
+
+the four pin i2c header is suitable for the generally available ssd1306 displays to mount directly to, assuming the pin layout is identical. the display is not currently used but will be used in future versions.
+
+attach a usb otg adapter to the pico's usb port. usb hubs are supported, but only at a single level. multiple mice and keyboards can be attached and used concurrently, allowing you to attach a keyboard for desk and one for remote usage (e.g. sofa).
+
+the controller ports mapping will change after revision 2: the assumption was made that 2x5 pin idc connectors were wired the same way as d-sub 9-pin connectors, and this was wrong. the numerical wiring works 1-2-3-4-5-6-7-8-9 vs 1-6-2-7-3-8-4-9-5, making ribbon attachment difficult in revision 2. this will be changed in revision 3.
 
 ## license
 
