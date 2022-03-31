@@ -233,7 +233,8 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
     // this would spam horrendously, so even when debug messages are on, this is probably... too much.
     // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
 
-    amiga_quad_mouse_set_motion(report->x, report->y);
+    if (report->x || report->y)
+        amiga_quad_mouse_set_motion(report->x, report->y);
 
     last_report = *report;
 }
