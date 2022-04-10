@@ -53,23 +53,8 @@ void amiga_init()
     gpio_init(PIN_AMIGA_CLK);
     gpio_init(PIN_AMIGA_RST);
 
-    // default direction is out; for keycode acknowledgement, we change /dat to input for 5ms after sending a code,
-    // then back to output. amigahid for the avr did nothing with this; we _should_ be checking that the amiga
-    // has acked the code, but hey, we're not a 6502, and if the comms are ropey you'll notice rather than rely
-    // on error recovery in the keyboard mcu (which is us, actually, in this case).
-    gpio_set_dir(PIN_AMIGA_DAT, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_CLK, GPIO_OUT);
-    gpio_set_dir(PIN_AMIGA_RST, GPIO_OUT);
-
-    // all pins are active low, meaning if /rst is current at 0, the amiga is held in reset.
-    // rectify this by putting all pins high. this should bring the amiga to boot.
-    gpio_put(PIN_AMIGA_DAT, 1);
-    gpio_put(PIN_AMIGA_CLK, 1);
-    gpio_put(PIN_AMIGA_RST, 1);
-
     // now the pins are setup, setup the timer callback to maintain keyboard comms in sync.
     // @todo add_alarm_in_ms() here
-
 
     // wait a full second then send initpower, pause 200ms and then termpower. unlike the amiga kbd 6502, we're
     // not doing anything during this time, so it's just so the computer is happy in the knowledge that we are
@@ -137,15 +122,15 @@ void amiga_send(uint8_t keycode, bool up)
 
     for (bit_position = 0; bit_position < 8; bit_position++) {
         if (sendcode & bit_mask)
-            gpio_put(PIN_AMIGA_DAT, 0);
+            gpio_set_dir(PIN_AMIGA_DAT, GPIO_OUT);
         else
-            gpio_put(PIN_AMIGA_DAT, 1);
+            gpio_set_dir(PIN_AMIGA_DAT, GPIO_IN);
 
         // hold /dat for 20us before pulsing /clk, then wait 50us before next bit
         sleep_us(20);
-        gpio_put(PIN_AMIGA_CLK, 0);
+        gpio_set_dir(PIN_AMIGA_CLK, GPIO_OUT);
         sleep_us(20);
-        gpio_put(PIN_AMIGA_CLK, 1);
+        gpio_set_dir(PIN_AMIGA_CLK, GPIO_IN);
         sleep_us(50); // @todo should be 20?
 
         // shift the bit pattern for next iteration
@@ -153,29 +138,27 @@ void amiga_send(uint8_t keycode, bool up)
     }
 
     // set /dat to input for 5ms to signal end of key
-    gpio_put(PIN_AMIGA_DAT, 1);
     gpio_set_dir(PIN_AMIGA_DAT, GPIO_IN);
     sleep_ms(5);
-    gpio_set_dir(PIN_AMIGA_DAT, GPIO_OUT);
 }
 
 void amiga_assert_reset()
 {
     ahprintf("[akb] *** RESET BEING ASSERTED ***\n");
-    gpio_put(PIN_AMIGA_RST, 0);
+    gpio_set_dir(PIN_AMIGA_RST, GPIO_OUT);
 }
 
 void amiga_release_reset()
 {
     ahprintf("[akb] *** RESET BEING RELEASED ***\n");
-    gpio_put(PIN_AMIGA_RST, 1);
+    gpio_set_dir(PIN_AMIGA_RST, GPIO_IN);
 }
 
 void amiga_service()
 {
     if ((sync_state == SYNC) && clock_timer_fired) {
         // @todo THIS IS WRONG
-        gpio_put(PIN_AMIGA_DAT, 1);
+        gpio_set_dir(PIN_AMIGA_RST, GPIO_IN);
         sync_state = IDLE;
         clock_timer_fired = false;
     }
