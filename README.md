@@ -8,7 +8,7 @@ amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) p
 
 **this is a work in progress.** if it builds, that's useful.
 
-![rev 4 pcb](./images/board-rev-4.png)
+![rev 4 pcb](./images/board-rev-4.jpg)
 
 ## why?
 
