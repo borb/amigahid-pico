@@ -48,11 +48,11 @@ volatile uint8_t motion_divider = 2;
 
 enum _mouse_pin_state { LOW, HIGH };
 
-void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
+static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
 {
     if (state == LOW) {
-        gpio_set_dir(gpio, GPIO_OUT);
         gpio_put(gpio, 0);
+        gpio_set_dir(gpio, GPIO_OUT);
         return;
     }
 
