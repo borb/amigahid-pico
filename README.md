@@ -1,12 +1,14 @@
 # amigahid-pico
 
+n.b. current kicad files are for r4 pcb, pin mappings are not yet in the source tree! generate at your own risk.
+
 ## introduction
 
 amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) project to the rp2040 microcontroller, the raspberry pi pico in the short term, possibly something more bespoke if the complete project goals are reached.
 
 **this is a work in progress.** if it builds, that's useful.
 
-![rev 2 pcb](./images/board-rev-2.png)
+![rev 4 pcb](./images/board-rev-4.png)
 
 ## why?
 
