@@ -239,6 +239,8 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
     last_report = *report;
 }
 
+static uint8_t led_report = 0;
+
 /**
  * Handle the keyboard event sent to us.
  *
@@ -250,7 +252,7 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
 {
     // keep hold of older key event reports; init empty keyboard report
     static hid_keyboard_report_t last_report = { 0, 0, {0} };
-    uint8_t pos, leds = 0;
+    uint8_t pos;
 
     // check to see if a keypress is a new keypress or in the last report
     for (pos = 0; pos < 6; pos++) {
@@ -347,16 +349,21 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
     }
 #endif
 
-    // @todo does not work
-    // if (amiga_caps_lock()) {
-    //     ahprintf("[hid] turning caps lock led on\n");
-    //     leds = KEYBOARD_LED_CAPSLOCK;
-    //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
-    // } else {
-    //     ahprintf("[hid] turning caps lock led off\n");
-    //     leds = 0;
-    //     tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &leds, 1);
-    // }
+    if (amiga_caps_lock()) {
+        if (!(led_report & KEYBOARD_LED_CAPSLOCK)) {
+            led_report |= KEYBOARD_LED_CAPSLOCK;
+
+            ahprintf("[hid] turning caps lock led on\n");
+            tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
+        }
+    } else {
+        if (led_report & KEYBOARD_LED_CAPSLOCK) {
+            led_report &= ~KEYBOARD_LED_CAPSLOCK;
+
+            ahprintf("[hid] turning caps lock led off\n");
+            tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
+        }
+    }
 
     last_report = *report;
 }
