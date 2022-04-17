@@ -1,10 +1,16 @@
 # amigahid-pico
 
-n.b. current kicad files are for r4 pcb, pin mappings are not yet in the source tree! generate at your own risk.
+## **important stuff**
+
+* current kicad files are for r4 pcb, pin mappings are not yet in the source tree! generate at your own risk. i am holding off putting those mappings in until i have received the next prototypes and built one for test. the usb test pad attachment is potentially risky and may not align, in spite of spending a while with a magnifying glass and calipers.
+
+* usb hubs and hotplug are currently only functional using [this fork](https://github.com/Ryzee119/tinyusb/tree/multi-hub) of tinyusb; i have not switched the submodule over to it because i am holding out for it being integrated into tinyusb upstream. without this branch, joint keyboard and mouse support will only be usable with a combination which share a single usb transceiver/cable.
+
+* **always read the [errata](#errata) section for the current pcb layout before deciding whether or not to build.**
 
 ## introduction
 
-amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) project to the rp2040 microcontroller, the raspberry pi pico in the short term, possibly something more bespoke if the complete project goals are reached.
+amigahid-pico is a rewrite of the [amigahid](https://github.com/borb/amigahid) project to the rp2040 microcontroller, the raspberry pi pico in the short term, possibly something more bespoke if the complete project goals are reached. at present, keyboard and mouse functionality are working and stable.
 
 **this is a work in progress.** if it builds, that's useful.
 
@@ -56,7 +62,7 @@ then build:
 $ cd build && make
 ```
 
-the resulting binaries will be in `build/src/` once built.
+see next section for installing on a pico.
 
 ## installing on a pi pico (or similar) board
 
@@ -93,7 +99,7 @@ all signals are active low.
 
 ## roadmap
 
-* i2c display support
+* i<sup>2</sup>c display support
 * runtime configuration as opposed to build flags (store in flash)
 * revision 3 pcb with usb socket, 74-series bus transceiver, smaller footprint
 * keyboard leds (currently not working and unknown reason why)
@@ -103,7 +109,7 @@ all signals are active low.
   * cd32 pad emulation also
 * amiga configuration preference panel
 * more keymaps
-* gotek control - either i2c slave device piggybacked off of the display connector, or simulation of rotary encoder pulses
+* gotek control - either i<sup>2</sup>c slave device piggybacked off of the display connector, or simulation of rotary encoder pulses
 * amiga reset warning
 * mouse wheel codes to keyboard via newmouse keycodes
 * status display via pico led
@@ -120,13 +126,15 @@ done, former roadmap items:
 
 ## errata
 
+this project is still in the relatively early stages in terms of hardware design and i'm learning things like kicad as i go along. it's likely i'll make mistakes, so this section documents those mistakes.
+
 ### board revision 1
 
 revision 1 was based around using the txs0108 bidirectional level shifter, which proved to be a mistake: whilst it worked for keyboard functionality, the voltage drop once connected to a controller port was so significant the amiga was held in reset. this would not have been an issue for big-box amigas as they have no dedicated reset line on the keyboard port, but it would have proved difficult for the amiga 500, 600 and 1200.
 
 ### board revision 2
 
-revision 2 of the board was the first successful test. this will change in the near future as some quirks were discovered during assembly. the design was changed to be mosfet-centric  using the bss138; this may change in future. i'd like to use the
+revision 2 of the board was the first successful test. this will change in the near future as some quirks were discovered during assembly. the design was changed to be mosfet-centric using the bss138; this may change in future. long-term, i'd like to use an ic rather than a series of (at present) 17 mosfets, but i have not yet found a part which provides all of the desired features.
 
 the pico is attached using castellated edges to pads on the surface. ensure the alignment is straight and flood the edges with solder, ensuring the solder makes contact with both the edge and the pad (check). buzz the attachment out with a multimeter to ensure it's worked and not shorted.
 
@@ -134,11 +142,23 @@ for the amiga 500, the keyboard connector can use 2.54mm pitch sockets on the se
 
 the programming & debug header provides serial wire debug and uart connections. you can program either via swdio or the usb port & bootsel button.
 
-the four pin i2c header is suitable for the generally available ssd1306 displays to mount directly to, assuming the pin layout is identical. the display is not currently used but will be used in future versions.
+the four pin i<sup>2</sup>c header is suitable for the generally available ssd1306 displays to mount directly to, assuming the pin layout is identical. the display is not currently used but will be used in future versions.
 
 attach a usb otg adapter to the pico's usb port. usb hubs are supported, but only at a single level. multiple mice and keyboards can be attached and used concurrently, allowing you to attach a keyboard for desk and one for remote usage (e.g. sofa).
 
 the controller ports mapping will change after revision 2: the assumption was made that 2x5 pin idc connectors were wired the same way as d-sub 9-pin connectors, and this was wrong. the numerical wiring works 1-2-3-4-5-6-7-8-9 vs 1-6-2-7-3-8-4-9-5, making ribbon attachment difficult in revision 2. this will be changed in revision 3.
+
+### board revision 3 (not in version control)
+
+was a reworking of revision two but with the intention of being smaller and introducing a castellated edge for attaching to the usb test pads; this version was never put into version control and has the same idc numbering problem as revision 2.
+
+### board revision 4
+
+warning: don't build this version; it's just for testing.
+
+sticking with the mosfet design, this version fixes the idc to d-sub pin wiring so a flat 1.27mm pitch can be used.
+
+downside: there are vias beneath the pico's keepouts for the bootsel/ground/power test points. if your board manufacturer doesn't coat the vias with solder mask sufficiently then these could make contact with the test points. if this happens, either use some polyamide (kapton) tape or clear nail varnish to insulate the test points before mounting the pico.
 
 ## license
 
