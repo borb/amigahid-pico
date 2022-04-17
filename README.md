@@ -99,21 +99,6 @@ all signals are active low.
 
 ## roadmap
 
-* i<sup>2</sup>c display support
-* runtime configuration as opposed to build flags (store in flash)
-* revision 3 pcb with usb socket, 74-series bus transceiver, smaller footprint
-* keyboard leds (currently not working and unknown reason why)
-* watchdog timer
-* pio statemachine handover to reduce dependance on cpu scheduling
-* joystick emulation
-  * cd32 pad emulation also
-* amiga configuration preference panel
-* more keymaps
-* gotek control - either i<sup>2</sup>c slave device piggybacked off of the display connector, or simulation of rotary encoder pulses
-* amiga reset warning
-* mouse wheel codes to keyboard via newmouse keycodes
-* status display via pico led
-
 crazy talk:
 * non-amiga support
 * non-hidbp support
