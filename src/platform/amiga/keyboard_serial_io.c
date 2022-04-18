@@ -63,7 +63,6 @@ int64_t sync_timer_cb(alarm_id_t id, void *user_data)
 
 void amiga_init()
 {
-    ahprintf("OMG MEGA OPEN DRAIN HAX LOL\n");
     // setup digital mode, direction and active high/low on /clk, /dat and /rst.
     gpio_init(PIN_AMIGA_DAT);
     gpio_init(PIN_AMIGA_CLK);
