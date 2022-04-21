@@ -2,7 +2,7 @@
 
 ## **important stuff**
 
-* current kicad files are for r4 pcb, pin mappings are not yet in the source tree! generate at your own risk. i am holding off putting those mappings in until i have received the next prototypes and built one for test. the usb test pad attachment is potentially risky and may not align, in spite of spending a while with a magnifying glass and calipers.
+* current kicad files are for r5 pcb, pin mappings are not yet in the source tree! i have not yet generated this board as a pcb, but it is mostly identical to r4. the keyboard and controller port 1 are correct at time of writing, and will be fixed for the second controller port when the next prototype arrives.
 
 * usb hubs and hotplug are currently only functional using [this fork](https://github.com/Ryzee119/tinyusb/tree/multi-hub) of tinyusb; i have not switched the submodule over to it because i am holding out for it being integrated into tinyusb upstream. without this branch, joint keyboard and mouse support will only be usable with a combination which share a single usb transceiver/cable.
 
@@ -144,6 +144,8 @@ warning: don't build this version; it's just for testing.
 sticking with the mosfet design, this version fixes the idc to d-sub pin wiring so a flat 1.27mm pitch can be used.
 
 downside: there are vias beneath the pico's keepouts for the bootsel/ground/power test points. if your board manufacturer doesn't coat the vias with solder mask sufficiently then these could make contact with the test points. if this happens, either use some polyamide (kapton) tape or clear nail varnish to insulate the test points before mounting the pico.
+
+erroneously, pin 30 (run) was attached as the horizontal/down line on the second controller port. as a result, h/down has been moved to 31, and v/up has been moved to 32 on revision 5.
 
 ## license
 
