@@ -16,6 +16,7 @@
 #include "platform/amiga/quad_mouse.h"
 #include "util/output.h"
 
+#include "config.h"
 #include "tusb_config.h"
 
 // defined within usb_hid.c
@@ -35,6 +36,10 @@ static const char welcomeText[] =
 // main entry point
 int main(void)
 {
+    // @todo put this somewhere else
+    gpio_set_function(KBD_AMIGA_CLK, GPIO_FUNC_SIO);
+    gpio_set_function(KBD_AMIGA_DAT, GPIO_FUNC_SIO);
+
     // tinyusb board init; led, uart, button, usb
     board_init();
 

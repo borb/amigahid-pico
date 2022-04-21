@@ -8,6 +8,7 @@
  * amiga quadrature mouse interface.
  */
 
+#include "config.h"
 #include "quad_mouse.h"
 #include "util/output.h"
 
@@ -17,29 +18,6 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/gpio.h"
-
-// default pins for amiga mouse communication
-#ifndef PIN_AMIGA_MOUSE_H
-#  define PIN_AMIGA_MOUSE_H 9   // pin 12, GP9
-#endif
-#ifndef PIN_AMIGA_MOUSE_V
-#  define PIN_AMIGA_MOUSE_V 8   // pin 11, GP8
-#endif
-#ifndef PIN_AMIGA_MOUSE_HQ
-#  define PIN_AMIGA_MOUSE_HQ 7   // pin 10, GP7
-#endif
-#ifndef PIN_AMIGA_MOUSE_VQ
-#  define PIN_AMIGA_MOUSE_VQ 6   // pin 9, GP6
-#endif
-#ifndef PIN_AMIGA_MOUSE_B1
-#  define PIN_AMIGA_MOUSE_B1 22   // pin 29, GP22
-#endif
-#ifndef PIN_AMIGA_MOUSE_B2
-#  define PIN_AMIGA_MOUSE_B2 26   // pin 31, GP26
-#endif
-#ifndef PIN_AMIGA_MOUSE_B3
-#  define PIN_AMIGA_MOUSE_B3 27   // pin 32, GP27
-#endif
 
 // mouse motion values, used between core0 and core1
 volatile int8_t x = 0, y = 0;
@@ -63,22 +41,30 @@ static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
 void amiga_quad_mouse_init()
 {
     // obtain the pins we want to use
-    gpio_init(PIN_AMIGA_MOUSE_H);
-    gpio_init(PIN_AMIGA_MOUSE_V);
-    gpio_init(PIN_AMIGA_MOUSE_HQ);
-    gpio_init(PIN_AMIGA_MOUSE_VQ);
-    gpio_init(PIN_AMIGA_MOUSE_B1);
-    gpio_init(PIN_AMIGA_MOUSE_B2);
-    gpio_init(PIN_AMIGA_MOUSE_B3);
+    gpio_init(QM1_AMIGA_H);
+    gpio_init(QM1_AMIGA_V);
+    gpio_init(QM1_AMIGA_HQ);
+    gpio_init(QM1_AMIGA_VQ);
+    gpio_init(QM1_AMIGA_B1);
+    gpio_init(QM1_AMIGA_B2);
+    gpio_init(QM1_AMIGA_B3);
+
+    gpio_set_function(QM1_AMIGA_H, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_V, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_HQ, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_VQ, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_B1, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_B2, GPIO_FUNC_SIO);
+    gpio_set_function(QM1_AMIGA_B3, GPIO_FUNC_SIO);
 
     // pins are active low, so when they are at 0 they're triggering; set all high (off)
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_H, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_V, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_B1, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_B2, HIGH);
-    _aqm_gpio_set(PIN_AMIGA_MOUSE_B3, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_H, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_V, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_HQ, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_VQ, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_B1, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_B2, HIGH);
+    _aqm_gpio_set(QM1_AMIGA_B3, HIGH);
 
     // start the mouse motion loop on core1
     multicore_launch_core1(amiga_quad_mouse_motion);
@@ -94,9 +80,9 @@ void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
     );
 
     switch (button) {
-        case AMQ_LEFT:      _aqm_gpio_set(PIN_AMIGA_MOUSE_B1, pressed ? LOW : HIGH); break;
-        case AMQ_MIDDLE:    _aqm_gpio_set(PIN_AMIGA_MOUSE_B3, pressed ? LOW : HIGH); break;
-        case AMQ_RIGHT:     _aqm_gpio_set(PIN_AMIGA_MOUSE_B2, pressed ? LOW : HIGH); break;
+        case AMQ_LEFT:      _aqm_gpio_set(QM1_AMIGA_B1, pressed ? LOW : HIGH); break;
+        case AMQ_MIDDLE:    _aqm_gpio_set(QM1_AMIGA_B3, pressed ? LOW : HIGH); break;
+        case AMQ_RIGHT:     _aqm_gpio_set(QM1_AMIGA_B2, pressed ? LOW : HIGH); break;
         default:            ahprintf("[aqm] unhandled button press!\n");
     }
 }
@@ -158,10 +144,10 @@ void amiga_quad_mouse_motion()
                     quad_mx_state = 0;
 
                 switch (quad_mx_state) {
-                    case 0: _aqm_gpio_set(PIN_AMIGA_MOUSE_H, HIGH); break;
-                    case 1: _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, HIGH); break;
-                    case 2: _aqm_gpio_set(PIN_AMIGA_MOUSE_H, LOW); break;
-                    case 3: _aqm_gpio_set(PIN_AMIGA_MOUSE_HQ, LOW); break;
+                    case 0: _aqm_gpio_set(QM1_AMIGA_H, HIGH); break;
+                    case 1: _aqm_gpio_set(QM1_AMIGA_HQ, HIGH); break;
+                    case 2: _aqm_gpio_set(QM1_AMIGA_H, LOW); break;
+                    case 3: _aqm_gpio_set(QM1_AMIGA_HQ, LOW); break;
                 }
             }
 
@@ -181,10 +167,10 @@ void amiga_quad_mouse_motion()
                     quad_my_state = 0;
 
                 switch (quad_my_state) {
-                    case 0: _aqm_gpio_set(PIN_AMIGA_MOUSE_V, HIGH); break;
-                    case 1: _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, HIGH); break;
-                    case 2: _aqm_gpio_set(PIN_AMIGA_MOUSE_V, LOW); break;
-                    case 3: _aqm_gpio_set(PIN_AMIGA_MOUSE_VQ, LOW); break;
+                    case 0: _aqm_gpio_set(QM1_AMIGA_V, HIGH); break;
+                    case 1: _aqm_gpio_set(QM1_AMIGA_VQ, HIGH); break;
+                    case 2: _aqm_gpio_set(QM1_AMIGA_V, LOW); break;
+                    case 3: _aqm_gpio_set(QM1_AMIGA_VQ, LOW); break;
                 }
             }
 

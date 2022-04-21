@@ -8,6 +8,7 @@
  * amiga keyboard serial interface.
  */
 
+#include "config.h"
 #include "keyboard_serial_io.h"
 #include "keyboard.h"
 #include "keyboard.pio.h" // generated at compile time
@@ -18,17 +19,6 @@
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
-
-// default pins for amiga keyboard communication: GP10 for reset, GP11 for data, GP12 for clock
-#ifndef PIN_AMIGA_CLK
-#  define PIN_AMIGA_CLK 12  // pin 16, GP12
-#endif
-#ifndef PIN_AMIGA_DAT
-#  define PIN_AMIGA_DAT 11  // pin 15, GP11
-#endif
-#ifndef PIN_AMIGA_RST
-#  define PIN_AMIGA_RST 10  // pin 14, GP10
-#endif
 
 enum SYNC_STATE { IDLE, SYNC };
 // don't optimise variables hit by the timer isr (timer callback?)
@@ -57,22 +47,22 @@ static inline void _keyboard_gpio_set(uint gpio, enum _keyboard_pin_state state)
 int64_t sync_timer_cb(alarm_id_t id, void *user_data)
 {
     clock_timer_fired = true;
-    _keyboard_gpio_set(PIN_AMIGA_DAT, LOW);
+    _keyboard_gpio_set(KBD_AMIGA_DAT, LOW);
     sync_state = SYNC;
 }
 
 void amiga_init()
 {
     // setup digital mode, direction and active high/low on /clk, /dat and /rst.
-    gpio_init(PIN_AMIGA_DAT);
-    gpio_init(PIN_AMIGA_CLK);
-    gpio_init(PIN_AMIGA_RST);
+    gpio_init(KBD_AMIGA_DAT);
+    gpio_init(KBD_AMIGA_CLK);
+    gpio_init(KBD_AMIGA_RST);
 
     // all pins are active low, meaning if /rst is current at 0, the amiga is held in reset.
     // rectify this by putting all pins in open drain. this should bring the amiga to boot.
-    _keyboard_gpio_set(PIN_AMIGA_DAT, HIGH);
-    _keyboard_gpio_set(PIN_AMIGA_CLK, HIGH);
-    _keyboard_gpio_set(PIN_AMIGA_RST, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
 
     // now the pins are setup, setup the timer callback to maintain keyboard comms in sync.
     // @todo add_alarm_in_ms() here
@@ -143,15 +133,15 @@ void amiga_send(uint8_t keycode, bool up)
 
     for (bit_position = 0; bit_position < 8; bit_position++) {
         if (sendcode & bit_mask)
-            _keyboard_gpio_set(PIN_AMIGA_DAT, LOW);
+            _keyboard_gpio_set(KBD_AMIGA_DAT, LOW);
         else
-            _keyboard_gpio_set(PIN_AMIGA_DAT, HIGH);
+            _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
 
         // hold /dat for 20us before pulsing /clk, then wait 50us before next bit
         sleep_us(20);
-        _keyboard_gpio_set(PIN_AMIGA_CLK, LOW);
+        _keyboard_gpio_set(KBD_AMIGA_CLK, LOW);
         sleep_us(20);
-        _keyboard_gpio_set(PIN_AMIGA_CLK, HIGH);
+        _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
         sleep_us(50); // @todo should be 20?
 
         // shift the bit pattern for next iteration
@@ -159,7 +149,7 @@ void amiga_send(uint8_t keycode, bool up)
     }
 
     // set /dat to input for 5ms to signal end of key
-    _keyboard_gpio_set(PIN_AMIGA_DAT, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
     sleep_ms(5);
 
     // @todo we _should_ be checking that the amiga has acked the code by watching /dat
@@ -171,20 +161,20 @@ void amiga_send(uint8_t keycode, bool up)
 void amiga_assert_reset()
 {
     ahprintf("[akb] *** RESET BEING ASSERTED ***\n");
-    _keyboard_gpio_set(PIN_AMIGA_RST, LOW);
+    _keyboard_gpio_set(KBD_AMIGA_RST, LOW);
 }
 
 void amiga_release_reset()
 {
     ahprintf("[akb] *** RESET BEING RELEASED ***\n");
-    _keyboard_gpio_set(PIN_AMIGA_RST, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
 }
 
 void amiga_service()
 {
     if ((sync_state == SYNC) && clock_timer_fired) {
         // @todo THIS IS WRONG
-        _keyboard_gpio_set(PIN_AMIGA_RST, HIGH);
+        _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
         sync_state = IDLE;
         clock_timer_fired = false;
     }
