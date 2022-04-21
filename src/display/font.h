@@ -1,9 +1,10 @@
-#ifndef _inc_font
-#define _inc_font
+#ifndef _DISPLAY_FONT_H
+#define _DISPLAY_FONT_H
 
-const uint8_t font_8x5[] =
-{
-			8, 5, //height, width
+#include <stdint.h>
+
+const uint8_t font_8x5[] = {
+			8, 5, // width, height
 			0x00, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x5F, 0x00, 0x00,
 			0x00, 0x07, 0x00, 0x07, 0x00,
@@ -101,4 +102,4 @@ const uint8_t font_8x5[] =
 			0x02, 0x01, 0x02, 0x04, 0x02,
 };
 
-#endif
+#endif // _DISPLAY_FONT_H

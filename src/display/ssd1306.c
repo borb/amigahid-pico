@@ -23,12 +23,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <pico/stdlib.h>
-#include <hardware/i2c.h>
-#include <pico/binary_info.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+#include "pico/binary_info.h"
 
 #include "ssd1306.h"
 #include "font.h"
@@ -183,15 +184,17 @@ void ssd13606_draw_empty_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t w
 }
 
 void ssd1306_draw_char_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, char c) {
-    if(c > '~')
+    if (c > '~')
         return;
 
-    for(uint8_t i=0; i<font[1]; ++i) {
-        uint8_t line=(uint8_t)(font[(c-0x20)*font[1]+i+2]);
+    c -= 0x20;
 
-        for(int8_t j=0; j<font[0]; ++j, line>>=1) {
-            if(line & 1 ==1)
-                ssd1306_draw_square(p, x+i*scale, y+j*scale, scale, scale);
+    for (uint8_t i = 0; i < font[1]; ++i) {
+        uint8_t line = (uint8_t) font[2 + (c * font[1]) + i];
+
+        for (uint8_t j = 0; j < font[0]; ++j, line >>= 1) {
+            if (line & 1)
+                ssd1306_draw_square(p, x + i * scale, y + j * scale, scale, scale);
         }
     }
 }
