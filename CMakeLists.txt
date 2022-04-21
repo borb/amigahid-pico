@@ -14,6 +14,9 @@ include(cmake/pico_sdk_import.cmake)
 # uncomment for debug slurry
 # add_compile_options(-DDEBUG_MESSAGES=1)
 
+# set the board revision (changes which pins are mapped to which ports)
+add_compile_options(-DHIDPICO_REVISION=4)
+
 # debugging for tinyusb - be warned that it can cause timing issues causing things to break
 # add_compile_options(-DCFG_TUSB_DEBUG=2)
 
