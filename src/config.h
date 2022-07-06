@@ -18,9 +18,10 @@
 #endif
 
 #if HIDPICO_REVISION == 2
-#  define I2C_PORT i2c0
+#  define I2C_PORT      i2c0
 #  define I2C_PIN_SDA   4
 #  define I2C_PIN_SCL   5
+#  define I2C_IRQN      23
 
 #  define KBD_AMIGA_RST 10
 #  define KBD_AMIGA_DAT 11
@@ -34,9 +35,10 @@
 #  define QM1_AMIGA_B2  26
 #  define QM1_AMIGA_B3  27
 #elif HIDPICO_REVISION == 4
-#  define I2C_PORT i2c1
+#  define I2C_PORT      i2c1
 #  define I2C_PIN_SDA   2
 #  define I2C_PIN_SCL   3
+#  define I2C_IRQN      24 // this is tied to the i2c port being used so get the right one!
 
 #  define KBD_AMIGA_RST 4
 #  define KBD_AMIGA_DAT 5
