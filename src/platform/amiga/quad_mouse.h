@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum amiga_quad_mouse_buttons { AMQ_LEFT, AMQ_MIDDLE, AMQ_RIGHT };
+enum amiga_quad_mouse_buttons { AQM_LEFT, AQM_MIDDLE, AQM_RIGHT };
 
 void amiga_quad_mouse_init();
 void amiga_quad_mouse_motion();

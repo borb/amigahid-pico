@@ -73,16 +73,16 @@ void amiga_quad_mouse_init()
 void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
 {
     ahprintf("[aqm] button %s state %s\n",
-        (button == AMQ_LEFT) ? "left" :
-            (button == AMQ_MIDDLE) ? "middle" :
-            (button == AMQ_RIGHT) ? "right" : "<unknown?!>",
+        (button == AQM_LEFT) ? "left" :
+            (button == AQM_MIDDLE) ? "middle" :
+            (button == AQM_RIGHT) ? "right" : "<unknown?!>",
         pressed ? "down" : "up"
     );
 
     switch (button) {
-        case AMQ_LEFT:      _aqm_gpio_set(QM1_AMIGA_B1, pressed ? LOW : HIGH); break;
-        case AMQ_MIDDLE:    _aqm_gpio_set(QM1_AMIGA_B3, pressed ? LOW : HIGH); break;
-        case AMQ_RIGHT:     _aqm_gpio_set(QM1_AMIGA_B2, pressed ? LOW : HIGH); break;
+        case AQM_LEFT:      _aqm_gpio_set(QM1_AMIGA_B1, pressed ? LOW : HIGH); break;
+        case AQM_MIDDLE:    _aqm_gpio_set(QM1_AMIGA_B3, pressed ? LOW : HIGH); break;
+        case AQM_RIGHT:     _aqm_gpio_set(QM1_AMIGA_B2, pressed ? LOW : HIGH); break;
         default:            ahprintf("[aqm] unhandled button press!\n");
     }
 }

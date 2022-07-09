@@ -219,19 +219,19 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
 
     // have buttons changed since the last report?
     if ((report->buttons & MOUSE_BUTTON_LEFT) && !(last_report.buttons & MOUSE_BUTTON_LEFT))
-        amiga_quad_mouse_button(AMQ_LEFT, true);
+        amiga_quad_mouse_button(AQM_LEFT, true);
     if (!(report->buttons & MOUSE_BUTTON_LEFT) && (last_report.buttons & MOUSE_BUTTON_LEFT))
-        amiga_quad_mouse_button(AMQ_LEFT, false);
+        amiga_quad_mouse_button(AQM_LEFT, false);
 
     if ((report->buttons & MOUSE_BUTTON_MIDDLE) && !(last_report.buttons & MOUSE_BUTTON_MIDDLE))
-        amiga_quad_mouse_button(AMQ_MIDDLE, true);
+        amiga_quad_mouse_button(AQM_MIDDLE, true);
     if (!(report->buttons & MOUSE_BUTTON_MIDDLE) && (last_report.buttons & MOUSE_BUTTON_MIDDLE))
-        amiga_quad_mouse_button(AMQ_MIDDLE, false);
+        amiga_quad_mouse_button(AQM_MIDDLE, false);
 
     if ((report->buttons & MOUSE_BUTTON_RIGHT) && !(last_report.buttons & MOUSE_BUTTON_RIGHT))
-        amiga_quad_mouse_button(AMQ_RIGHT, true);
+        amiga_quad_mouse_button(AQM_RIGHT, true);
     if (!(report->buttons & MOUSE_BUTTON_RIGHT) && (last_report.buttons & MOUSE_BUTTON_RIGHT))
-        amiga_quad_mouse_button(AMQ_RIGHT, false);
+        amiga_quad_mouse_button(AQM_RIGHT, false);
 
     // this would spam horrendously, so even when debug messages are on, this is probably... too much.
     // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
