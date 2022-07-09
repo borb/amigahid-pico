@@ -24,12 +24,13 @@
 #include "platform/amiga/keyboard.h"
 #include "platform/amiga/quad_mouse.h"
 #include "util/output.h"
+#include "util/debug_cons.h"
 
 // maximum number of reports per hid device
 #define MAX_REPORT 4
 
 // textual representations of attached devices
-const char *hid_protocol_label[] = { "none", "keyboard", "mouse" };
+const uint8_t hid_protocol_type[] = { NULL, AP_H_KEYBOARD, AP_H_MOUSE };
 
 // hid information structure
 static struct _hid_info
@@ -62,7 +63,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    ahprintf("[PLUG] device %02x:%02x connected, type '%s'\n", dev_addr, instance, hid_protocol_label[hid_protocol]);
+    dbgcons_plug(hid_protocol_type[hid_protocol]);
 
     // this part doesn't entirely make sense to me; hid devices come in two modes, boot protocol and report;
     // as i understand it, boot proto is intended for simplistic software such as bios which don't want to
@@ -86,7 +87,9 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
  */
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
-    ahprintf("[PLUG] device %02x:%02x disconnected\n", dev_addr, instance);
+    uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+
+    dbgcons_unplug(hid_protocol_type[hid_protocol]);
 }
 
 /**

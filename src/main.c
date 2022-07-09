@@ -14,6 +14,7 @@
 
 #include "platform/amiga/keyboard_serial_io.h"
 #include "platform/amiga/quad_mouse.h"
+#include "util/debug_cons.h"
 #include "util/output.h"
 #include "display/ssd1306.h"
 #include "display/font_6x13.h"
@@ -23,17 +24,6 @@
 
 // defined within usb_hid.c
 extern void hid_app_task(void);
-
-// welcome message
-// output in this firmware will only occur when the following is present in
-// src/CMakeLists.txt:
-//  pico_enable_stdio_uart(amigahid-pico 1)
-static const char welcomeText[] =
-    "amigahid-pico by nine <nine@aphlor.org>, https://github.com/borb/amigahid-pico\n" \
-    "this is free software; the software source and any schematic should be\n" \
-    "made available to you free of charge. if you have not been provided with the\n" \
-    "source code or schematic please report where you obtained the software and/or\n" \
-    "hardware to the above address.\n\n";
 
 // main entry point
 int main(void)
@@ -63,7 +53,7 @@ int main(void)
     board_init();
 
     // say hello, trevor ("hello, trevor")
-    ahprintf(welcomeText);
+    dbgcons_init();
 
     // initialise the usb stack
     // defining CFG_TUSB_RHPORT0_MODE as OPT_MODE_HOST will put the controller into host mode
