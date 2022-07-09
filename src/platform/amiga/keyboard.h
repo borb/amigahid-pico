@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include "class/hid/hid.h"
+
 // amiga keycodes (transcribed from amiga developer cd 2.1)
 // legend: kp = keypad
 #define AMIGA_BACKTICK  0x00 // backtick / shifted tilde
@@ -147,6 +149,26 @@
  * roll-left+carry occurs, key up/down is not possible and the code is sent
  * as a one-shot.
  */
+
+/**
+ * map modifiers to amiga keycodes
+ */
+typedef struct __attribute__ ((packed)) {
+    hid_keyboard_modifier_bm_t hid_modifier;
+    uint8_t amiga_keycode;
+} hid_to_amiga_modifier_t;
+
+static const hid_to_amiga_modifier_t mapHidModToAmiga[] = {
+    { KEYBOARD_MODIFIER_LEFTCTRL, AMIGA_CTRL },
+    { KEYBOARD_MODIFIER_RIGHTCTRL, AMIGA_CTRL },
+    { KEYBOARD_MODIFIER_LEFTALT, AMIGA_LALT },
+    { KEYBOARD_MODIFIER_RIGHTALT, AMIGA_RALT },
+    { KEYBOARD_MODIFIER_LEFTSHIFT, AMIGA_LSHIFT },
+    { KEYBOARD_MODIFIER_RIGHTSHIFT, AMIGA_RSHIFT },
+    { KEYBOARD_MODIFIER_LEFTGUI, AMIGA_LAMIGA },
+    { KEYBOARD_MODIFIER_RIGHTGUI, AMIGA_RAMIGA },
+    { 0UL, 0 }
+};
 
 /**
  * map hid keycodes to amiga keycodes

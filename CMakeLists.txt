@@ -8,11 +8,8 @@ include(cmake/pico_sdk_import.cmake)
 
 # configuration options
 
-# uncomment if you prefer the menu key to be right amiga (some keyboards don't have right gui [windows key])
-# add_compile_options(-DMENU_IS_RAMIGA=1)
-
 # uncomment for debug slurry
-# add_compile_options(-DDEBUG_MESSAGES=1)
+add_compile_options(-DDEBUG_MESSAGES=1)
 
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_options(-DHIDPICO_REVISION=4)

@@ -14,6 +14,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "class/hid/hid.h"
+
 /**
  * @brief Setup Amiga keyboard communication
  *
@@ -22,12 +24,28 @@
 void amiga_init();
 
 /**
- * @brief get the caps lock status
+ * @brief Get the caps lock status
  *
  * @return true     Caps lock is on
  * @return false    Caps lock is off
  */
 bool amiga_caps_lock();
+
+/**
+ * @brief Send a HID keycode to the Amiga, translating along the way
+ *
+ * @param hidcode   HID keycode to send
+ * @param up        true if key release, false if press
+ */
+void amiga_hid_send(uint8_t hidcode, bool up);
+
+/**
+ * @brief Send a modifier keycode to the Amiga, translating along the way
+ *
+ * @param modifier  Modifier being sent
+ * @param up        Up or down? true if release, false if press
+ */
+void amiga_hid_modifier(hid_keyboard_modifier_bm_t modifier, bool up);
 
 /**
  * @brief Send a keycode to the Amiga

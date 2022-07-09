@@ -13,12 +13,14 @@
 #include "keyboard.h"
 #include "keyboard.pio.h" // generated at compile time
 #include "util/output.h"
+#include "util/debug_cons.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include "class/hid/hid.h"
 
 enum _sync_state { IDLE, SYNC };
 // don't optimise variables hit by the timer isr (timer callback?)
@@ -51,6 +53,22 @@ int64_t sync_timer_cb(alarm_id_t id, void *user_data)
     sync_state = SYNC;
 }
 
+uint8_t get_modifier_from_hid(hid_keyboard_modifier_bm_t modifier)
+{
+    hid_to_amiga_modifier_t *mapping;
+
+    // @todo fix incompatible pointer type warning
+    ahprintf(VT_CUP_POS "\n", 1, 12);
+    for (mapping = &mapHidModToAmiga; mapping->hid_modifier != 0UL; mapping += sizeof(hid_to_amiga_modifier_t)) {
+        ahprintf("mapping pointer %04x\n", mapping);
+        if (modifier == mapping->hid_modifier) {
+            return mapping->amiga_keycode;
+        }
+    }
+
+    return 0;
+}
+
 void amiga_init()
 {
     // setup digital mode, direction and active high/low on /clk, /dat and /rst.
@@ -81,6 +99,29 @@ void amiga_init()
 bool amiga_caps_lock()
 {
     return caps_lock;
+}
+
+void amiga_hid_send(uint8_t hidcode, bool up)
+{
+    if (mapHidToAmiga[hidcode] == AMIGA_UNKNOWN) {
+        // ahprintf("[akb] cowardly refusing to send $ff to the amiga\n");
+        return;
+    }
+
+    dbgcons_amiga_key(hidcode, mapHidToAmiga[hidcode], up ? "u" : "d");
+
+    amiga_send(mapHidToAmiga[hidcode], up);
+}
+
+void amiga_hid_modifier(hid_keyboard_modifier_bm_t modifier, bool up)
+{
+    uint8_t amiga_code;
+    amiga_code = get_modifier_from_hid(modifier);
+
+    // @todo indicate the modifier state in dbgcons, somehow
+    dbgcons_amiga_key(0, amiga_code, up ? "u" : "d");
+
+    amiga_send(amiga_code, up);
 }
 
 void amiga_send(uint8_t keycode, bool up)

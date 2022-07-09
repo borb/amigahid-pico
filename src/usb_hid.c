@@ -29,6 +29,23 @@
 // maximum number of reports per hid device
 #define MAX_REPORT 4
 
+// repetitive modifier check macros (@todo probably better iterated in future?)
+#define _SINGLE_MOD_CHECK(hid_mod) \
+    if ((report->modifier & hid_mod) && !(last_report.modifier & hid_mod)) \
+        amiga_hid_modifier(hid_mod, false); \
+    if (!(report->modifier & hid_mod) && (last_report.modifier & hid_mod)) \
+        amiga_hid_modifier(hid_mod, true);
+
+#define _MULTI_MOD_CHECK(hid_mod_a, hid_mod_b) \
+    if (((report->modifier & hid_mod_a) && !(last_report.modifier & hid_mod_a)) \
+        || ((report->modifier & hid_mod_b) && !(last_report.modifier & hid_mod_b)) \
+    ) \
+        amiga_hid_modifier(hid_mod_a, false); \
+    if ((!(report->modifier & hid_mod_a) && (last_report.modifier & hid_mod_a)) \
+        || (!(report->modifier & hid_mod_b) && (last_report.modifier & hid_mod_b)) \
+    ) \
+        amiga_hid_modifier(hid_mod_a, true);
+
 // textual representations of attached devices
 const uint8_t hid_protocol_type[] = { NULL, AP_H_KEYBOARD, AP_H_MOUSE };
 
@@ -262,96 +279,28 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
     for (pos = 0; pos < 6; pos++) {
         if (report->keycode[pos] && !key_pressed(&last_report, report->keycode[pos])) {
             // this is a new keypress; pass on to the amiga as a down event
-#ifndef MENU_IS_RAMIGA
-            // ignore menu
-            if (report->keycode[pos] == HID_KEY_APPLICATION)
-                continue;
-#endif
-
-            ahprintf("[hid] sending key down (amiga: %02x, hid: %02x)\n", mapHidToAmiga[report->keycode[pos]], report->keycode[pos]);
-            amiga_send(mapHidToAmiga[report->keycode[pos]], false);
+            // @todo right now, menu and right gui are both mapped to right amiga; if one is released, an ramiga up is sent
+            // probably something which can be fixed in keyboard_serial_io.c
+            ahprintf(VT_CUP_POS "sending a down for code %02x", 9, 9, report->keycode[pos]);
+            amiga_hid_send(report->keycode[pos], false);
         }
 
         if (last_report.keycode[pos] && !key_pressed(report, last_report.keycode[pos])) {
             // key has been released; send "up" code to amiga
-#ifndef MENU_IS_RAMIGA
-            // ignore menu
-            if (last_report.keycode[pos] == HID_KEY_APPLICATION)
-                continue;
-#endif
-            amiga_send(mapHidToAmiga[last_report.keycode[pos]], true);
+            ahprintf(VT_CUP_POS "sending an up for code %02x", 9, 10, last_report.keycode[pos]);
+            amiga_hid_send(last_report.keycode[pos], true);
         }
     }
-
+ahprintf(VT_CUP_POS "mod: %02x, last: %02x\n", 8, 8, report->modifier, last_report.modifier);
     // check modifier state
-    if (((report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
-        || ((report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
-    ) {
-        ahprintf("[hid] ctrl pressed, sending ctrl down\n");
-        amiga_send(AMIGA_CTRL, false);
-    }
-    if ((!(report->modifier & KEYBOARD_MODIFIER_LEFTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTCTRL))
-        || (!(report->modifier & KEYBOARD_MODIFIER_RIGHTCTRL) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTCTRL))
-    ) {
-        ahprintf("[hid] ctrl released, sending ctrl up\n");
-        amiga_send(AMIGA_CTRL, true);
-    }
-
-    if ((report->modifier & KEYBOARD_MODIFIER_LEFTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        ahprintf("[hid] left alt pressed, sending left alt down\n");
-        amiga_send(AMIGA_LALT, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTALT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTALT)) {
-        ahprintf("[hid] left alt released, sending left alt up\n");
-        amiga_send(AMIGA_LALT, true);
-    }
-
-    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        ahprintf("[hid] right alt pressed, sending right alt down\n");
-        amiga_send(AMIGA_RALT, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTALT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTALT)) {
-        ahprintf("[hid] right alt released, sending right alt up\n");
-        amiga_send(AMIGA_RALT, true);
-    }
-
-    if ((report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        ahprintf("[hid] left shift pressed, sending left shift down\n");
-        amiga_send(AMIGA_LSHIFT, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTSHIFT)) {
-        ahprintf("[hid] left shift released, sending left shift up\n");
-        amiga_send(AMIGA_LSHIFT, true);
-    }
-
-    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        ahprintf("[hid] right shift pressed, sending right shift down\n");
-        amiga_send(AMIGA_RSHIFT, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTSHIFT) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTSHIFT)) {
-        ahprintf("[hid] right shift released, sending right shift up\n");
-        amiga_send(AMIGA_RSHIFT, true);
-    }
-
-    if ((report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        ahprintf("[hid] left gui pressed, sending left amiga down\n");
-        amiga_send(AMIGA_LAMIGA, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_LEFTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_LEFTGUI)) {
-        ahprintf("[hid] left gui released, sending left amiga up\n");
-        amiga_send(AMIGA_LAMIGA, true);
-    }
-
-#ifndef MENU_IS_RAMIGA
-    if ((report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && !(last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        ahprintf("[hid] right gui pressed, sending right amiga down\n");
-        amiga_send(AMIGA_RAMIGA, false);
-    }
-    if (!(report->modifier & KEYBOARD_MODIFIER_RIGHTGUI) && (last_report.modifier & KEYBOARD_MODIFIER_RIGHTGUI)) {
-        ahprintf("[hid] right gui released, sending right amiga up\n");
-        amiga_send(AMIGA_RAMIGA, true);
-    }
-#endif
+    _MULTI_MOD_CHECK(KEYBOARD_MODIFIER_LEFTCTRL, KEYBOARD_MODIFIER_RIGHTCTRL);
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTALT);
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTALT);
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTSHIFT);
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTSHIFT);
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTGUI);
+    // @todo menu key vs right gui thing; see above
+    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTGUI);
 
     if (amiga_caps_lock()) {
         if (!(led_report & KEYBOARD_LED_CAPSLOCK)) {

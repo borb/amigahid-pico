@@ -90,3 +90,8 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
         incode, outcode, updown
     );
 }
+
+void dbgcons_amiga_mod(uint8_t outcode, char updown)
+{
+    // ls rs cl ct la ra lam ram
+}
