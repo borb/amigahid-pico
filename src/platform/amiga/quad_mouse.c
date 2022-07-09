@@ -72,18 +72,18 @@ void amiga_quad_mouse_init()
 
 void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
 {
-    ahprintf("[aqm] button %s state %s\n",
-        (button == AQM_LEFT) ? "left" :
-            (button == AQM_MIDDLE) ? "middle" :
-            (button == AQM_RIGHT) ? "right" : "<unknown?!>",
-        pressed ? "down" : "up"
-    );
+    // ahprintf("[aqm] button %s state %s\n",
+    //     (button == AQM_LEFT) ? "left" :
+    //         (button == AQM_MIDDLE) ? "middle" :
+    //         (button == AQM_RIGHT) ? "right" : "<unknown?!>",
+    //     pressed ? "down" : "up"
+    // );
 
     switch (button) {
         case AQM_LEFT:      _aqm_gpio_set(QM1_AMIGA_B1, pressed ? LOW : HIGH); break;
         case AQM_MIDDLE:    _aqm_gpio_set(QM1_AMIGA_B3, pressed ? LOW : HIGH); break;
         case AQM_RIGHT:     _aqm_gpio_set(QM1_AMIGA_B2, pressed ? LOW : HIGH); break;
-        default:            ahprintf("[aqm] unhandled button press!\n");
+        // default:            ahprintf("[aqm] unhandled button press!\n");
     }
 }
 
@@ -98,7 +98,7 @@ void amiga_quad_mouse_set_motion(int8_t in_x, int8_t in_y)
 
 void amiga_quad_mouse_motion()
 {
-    ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
+    // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
     int8_t out_x, out_y;
     uint8_t quad_mx_state = 0, quad_my_state = 0;
     bool motion_x_skip = false, motion_y_skip = false;

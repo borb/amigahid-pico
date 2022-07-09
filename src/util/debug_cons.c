@@ -37,7 +37,7 @@ void dbgcons_print_counters()
 {
     ahprintf(
         VT_CUP_POS VT_EL_LIN
-        "[system] key: %02x mouse: %02x joy: %02x total plug: %02x total unplug: %02x",
+        "[system] key: %02x mouse: %02x joy: %02x total plug: %02x total unplug: %02x\n",
         3, 1,
         debug_counters.hid_keyboard,
         debug_counters.hid_mouse,
@@ -81,11 +81,11 @@ void dbgcons_unplug(enum debug_plug_types devtype)
     dbgcons_print_counters();
 }
 
-void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char updown)
+void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
 {
     ahprintf(
         VT_CUP_POS VT_EL_LIN
-        "[amigak]  hid in: %02x amiga out: %02x up/down: %c",
+        "[amigak] hid in: %02x amiga out: %02x up/down: %s\n",
         4, 1,
         incode, outcode, updown
     );

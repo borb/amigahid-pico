@@ -71,11 +71,11 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
     // this might be number of interfaces on a device (think wireless kbd+mouse receiver). maybe. speculation.
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-        ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
+        // ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
     }
 
     if (!tuh_hid_receive_report(dev_addr, instance)) {
-        ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
+        // ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
     }
 }
 
@@ -121,8 +121,9 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
     }
 
     // continue to request to receive report
-    if (!tuh_hid_receive_report(dev_addr, instance))
-        ahprintf("[ERROR] unable to receive hid event report\n");
+    tuh_hid_receive_report(dev_addr, instance);
+    // if (!tuh_hid_receive_report(dev_addr, instance))
+        // ahprintf("[ERROR] unable to receive hid event report\n");
 }
 
 /**
@@ -178,7 +179,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
     }
 
     if (!report_info) {
-        ahprintf("[ERROR] report_info pointer was not set during process_report(), value: $%x, report_count was %d\n", report_info, report_count);
+        // ahprintf("[ERROR] report_info pointer was not set during process_report(), value: $%x, report_count was %d\n", report_info, report_count);
         return;
     }
 
@@ -213,7 +214,7 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
     static hid_mouse_report_t last_report = { 0 };
 
     if (report == NULL) {
-        ahprintf("[hid] report was null, aborting mouse event\n");
+        // ahprintf("[hid] report was null, aborting mouse event\n");
         return;
     }
 
@@ -356,14 +357,14 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
         if (!(led_report & KEYBOARD_LED_CAPSLOCK)) {
             led_report |= KEYBOARD_LED_CAPSLOCK;
 
-            ahprintf("[hid] turning caps lock led on\n");
+            // ahprintf("[hid] turning caps lock led on\n");
             tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
         }
     } else {
         if (led_report & KEYBOARD_LED_CAPSLOCK) {
             led_report &= ~KEYBOARD_LED_CAPSLOCK;
 
-            ahprintf("[hid] turning caps lock led off\n");
+            // ahprintf("[hid] turning caps lock led off\n");
             tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
         }
     }

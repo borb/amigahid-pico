@@ -88,11 +88,6 @@ void amiga_send(uint8_t keycode, bool up)
     uint8_t bit_position, bit_mask = 0x80, sendcode;
     static bool ctrl = false, lamiga = false, ramiga = false, in_reset = false;
 
-    if (keycode == AMIGA_UNKNOWN) {
-        ahprintf("[akb] cowardly refusing to send $ff to the amiga\n");
-        return; // cowardly refuse to send an unknown scancode to the amiga
-    }
-
     // we don't care about caps lock coming up; ignore it
     if ((keycode == AMIGA_CAPSLOCK) && up)
         return;
@@ -103,7 +98,7 @@ void amiga_send(uint8_t keycode, bool up)
         up = caps_lock;
         caps_lock = !caps_lock;
 
-        ahprintf("[akb] caps lock %s\n", caps_lock ? "ON" : "OFF");
+        // ahprintf("[akb] caps lock %s\n", caps_lock ? "ON" : "OFF");
     }
 
     if (keycode == AMIGA_CTRL)
@@ -122,8 +117,6 @@ void amiga_send(uint8_t keycode, bool up)
         in_reset = false;
         amiga_release_reset();
     }
-
-    ahprintf("[akb] sending keycode to amiga - state %s, code $%02x\n", up ? "UP" : "DOWN", keycode);
 
     // copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
@@ -160,13 +153,13 @@ void amiga_send(uint8_t keycode, bool up)
 
 void amiga_assert_reset()
 {
-    ahprintf("[akb] *** RESET BEING ASSERTED ***\n");
+    // ahprintf("[akb] *** RESET BEING ASSERTED ***\n");
     _keyboard_gpio_set(KBD_AMIGA_RST, LOW);
 }
 
 void amiga_release_reset()
 {
-    ahprintf("[akb] *** RESET BEING RELEASED ***\n");
+    // ahprintf("[akb] *** RESET BEING RELEASED ***\n");
     _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
 }
 
