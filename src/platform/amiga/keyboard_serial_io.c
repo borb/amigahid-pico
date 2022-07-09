@@ -20,9 +20,9 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 
-enum SYNC_STATE { IDLE, SYNC };
+enum _sync_state { IDLE, SYNC };
 // don't optimise variables hit by the timer isr (timer callback?)
-volatile uint8_t sync_state = IDLE;
+volatile enum _sync_state sync_state = IDLE;
 volatile bool clock_timer_fired = false;
 
 // caps lock will be read by the hid loop
