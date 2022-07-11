@@ -47,7 +47,7 @@
         amiga_hid_modifier(hid_mod_a, true);
 
 // textual representations of attached devices
-const uint8_t hid_protocol_type[] = { NULL, AP_H_KEYBOARD, AP_H_MOUSE };
+const uint8_t hid_protocol_type[] = { AP_H_UNKNOWN, AP_H_KEYBOARD, AP_H_MOUSE };
 
 // hid information structure
 static struct _hid_info
@@ -281,17 +281,15 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
             // this is a new keypress; pass on to the amiga as a down event
             // @todo right now, menu and right gui are both mapped to right amiga; if one is released, an ramiga up is sent
             // probably something which can be fixed in keyboard_serial_io.c
-            ahprintf(VT_CUP_POS "sending a down for code %02x", 9, 9, report->keycode[pos]);
             amiga_hid_send(report->keycode[pos], false);
         }
 
         if (last_report.keycode[pos] && !key_pressed(report, last_report.keycode[pos])) {
             // key has been released; send "up" code to amiga
-            ahprintf(VT_CUP_POS "sending an up for code %02x", 9, 10, last_report.keycode[pos]);
             amiga_hid_send(last_report.keycode[pos], true);
         }
     }
-ahprintf(VT_CUP_POS "mod: %02x, last: %02x\n", 8, 8, report->modifier, last_report.modifier);
+
     // check modifier state
     _MULTI_MOD_CHECK(KEYBOARD_MODIFIER_LEFTCTRL, KEYBOARD_MODIFIER_RIGHTCTRL);
     _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTALT);

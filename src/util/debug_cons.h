@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-enum debug_plug_types { AP_H_KEYBOARD, AP_H_MOUSE, AP_H_CONTROLLER };
+enum debug_plug_types { AP_H_UNKNOWN, AP_H_KEYBOARD, AP_H_MOUSE, AP_H_CONTROLLER };
 
 #define ESC         "\033"
 

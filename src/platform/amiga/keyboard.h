@@ -153,7 +153,7 @@
 /**
  * map modifiers to amiga keycodes
  */
-typedef struct __attribute__ ((packed)) {
+typedef struct {
     hid_keyboard_modifier_bm_t hid_modifier;
     uint8_t amiga_keycode;
 } hid_to_amiga_modifier_t;

@@ -55,15 +55,14 @@ int64_t sync_timer_cb(alarm_id_t id, void *user_data)
 
 uint8_t get_modifier_from_hid(hid_keyboard_modifier_bm_t modifier)
 {
-    hid_to_amiga_modifier_t *mapping;
+    const hid_to_amiga_modifier_t *mapping;
 
-    // @todo fix incompatible pointer type warning
-    ahprintf(VT_CUP_POS "\n", 1, 12);
-    for (mapping = &mapHidModToAmiga; mapping->hid_modifier != 0UL; mapping += sizeof(hid_to_amiga_modifier_t)) {
-        ahprintf("mapping pointer %04x\n", mapping);
+    mapping = mapHidModToAmiga;
+    while (mapping->hid_modifier != 0UL) {
         if (modifier == mapping->hid_modifier) {
             return mapping->amiga_keycode;
         }
+        mapping++;
     }
 
     return 0;
