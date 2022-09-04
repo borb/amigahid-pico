@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 set(ENV{PICO_SDK_PATH} "${CMAKE_SOURCE_DIR}/pico-sdk/")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(PICO_TINYUSB_PATH "${CMAKE_SOURCE_DIR}/tinyusb/")
 
 include(cmake/pico_sdk_import.cmake)
 
