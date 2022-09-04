@@ -4,8 +4,6 @@
 
 * current kicad files are for r5 pcb, pin mappings are not yet in the source tree! i have not yet generated this board as a pcb, but it is mostly identical to r4. the keyboard and controller port 1 are correct at time of writing, and will be fixed for the second controller port when the next prototype arrives.
 
-* usb hubs and hotplug are currently only functional using [this fork](https://github.com/Ryzee119/tinyusb/tree/multi-hub) of tinyusb; i have not switched the submodule over to it because i am holding out for it being integrated into tinyusb upstream. without this branch, joint keyboard and mouse support will only be usable with a combination which share a single usb transceiver/cable.
-
 * **always read the [errata](#errata) section for the current pcb layout before deciding whether or not to build.**
 
 ## introduction
