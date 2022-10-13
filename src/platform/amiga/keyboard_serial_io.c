@@ -75,6 +75,10 @@ void amiga_init()
     gpio_init(KBD_AMIGA_CLK);
     gpio_init(KBD_AMIGA_RST);
 
+    gpio_set_function(KBD_AMIGA_DAT, GPIO_FUNC_SIO);
+    gpio_set_function(KBD_AMIGA_CLK, GPIO_FUNC_SIO);
+    gpio_set_function(KBD_AMIGA_RST, GPIO_FUNC_SIO);
+
     // all pins are active low, meaning if /rst is current at 0, the amiga is held in reset.
     // rectify this by putting all pins in open drain. this should bring the amiga to boot.
     _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);

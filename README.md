@@ -58,6 +58,10 @@ crazy talk:
 
 on the fence at the moment, but the current license choice is Eclipse Public License 2.0 (EPL-2.0).
 
+## third party licenses
+
+* µgui: this code contains 'µgui' by achim döbler; the license for this can be read at in the [display readme](./src/display/README.md)
+
 ## whuh... who?
 
 nine <[nine@aphlor.org](mailto:nine@aphlor.org)>

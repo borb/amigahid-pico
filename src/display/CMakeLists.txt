@@ -1,1 +1,1 @@
-target_sources(amigahid-pico PRIVATE ssd1306.c)
+target_sources(amigahid-pico PRIVATE disp_ssd.c ugui.c)
