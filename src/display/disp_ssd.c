@@ -19,22 +19,43 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "config.h"
 #include "display/disp_ssd.h"
 #include "display/ugui.h"
+#include "util/output.h"
 
 #define SSD_WIDTH           128
 #define SSD_HEIGHT          64
-#define SSD_BAUD            1000000         // 1MHz
+#define SSD_BAUD            1000000         // 1MHz; if my estimation is correct, this could achieve 122fps
 #define SSD_ADDR            0x3c            // my board has 0x78 jumper soldered closed on the back but ¯\_(ツ)_/¯
-#define I2C_MAX_TRANSFER    0x400 + 0x20    // 1KB + 32B response
+#define I2C_MAX_TRANSFER    0x400 + 0x20    // 1KB + 32B overhead
+
+// display transaction structure
+typedef struct
+{
+    uint8_t *write_buffer;
+    size_t write_length;
+    uint8_t *read_buffer;
+    size_t read_length;
+
+    void *next_transaction;
+    void *prev_transaction;
+} display_transaction_t;
+
+static display_transaction_t *current_transaction = NULL,
+                             *last_transaction = NULL;
+
+static uint8_t queue_depth = 0;
 
 /**
  * ssd1306 commands; borrowed from https://github.com/fivdi/pico-i2c-dma ssd1306 example code with thanks.
  * especially for the very comprehensive descriptions.
  */
-typedef enum {
+typedef enum
+{
   // Fundamental commands
   SET_CONTRAST = 0x81,         // Double byte command to select 1 out of
                                // 256 contrast steps.
@@ -83,8 +104,19 @@ typedef enum {
                                // Byte2 = 0x14: Enable charge pump.
 } ssd1306_command_t;
 
-// controller transfer flags: stop means "finished", abort means "something failed so i gave up"
-static volatile bool stop, abort;
+// declare i2c init & trans; resolves a circular dependency between the i2c irqh, trans and init functions
+static void disp_i2c_init(void);
+static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length);
+
+// i2c transfer flags: stop means "finished", abort means "something failed so i gave up"
+static volatile bool _stop = false,
+                     _abort = false,
+                     _reading = false,
+                     _writing = false;
+
+// dma channels
+static volatile int tx_chan = 0,
+                    rx_chan = 0;
 
 // display things: pixel command buffer (1 command followed by (x * y)/8)
 static uint8_t display_command[1 + ((SSD_WIDTH * SSD_HEIGHT) / 8)];
@@ -105,18 +137,80 @@ typedef UG_COLOR UG_COLOUR;
 static void disp_ssd_i2c_irqh(void)
 {
     uint32_t status = i2c_get_hw(I2C_PORT)->intr_stat;
+    display_transaction_t *next_transaction = NULL;
+    uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
 
     // check for trans abort; read register causes clear to occur
     if (status & I2C_IC_INTR_STAT_R_TX_ABRT_BITS) {
         i2c_get_hw(I2C_PORT)->clr_tx_abrt;
-        abort = true;
+        _abort = true;
     }
 
     // check for trans stop (complete); read register causes clear to occur
     if (status & I2C_IC_INTR_STAT_R_STOP_DET_BITS) {
         i2c_get_hw(I2C_PORT)->clr_stop_det;
-        stop = true;
+        _stop = true;
     }
+
+    // if an abort happened (not end of transmission), abort dma
+    if (_abort || !_stop) {
+        dma_channel_abort(tx_chan);
+        if (_reading)
+            dma_channel_abort(rx_chan);
+    }
+
+    dma_channel_unclaim(tx_chan);
+    if (_reading)
+        dma_channel_unclaim(rx_chan);
+
+    // check for issues and reinitialise the i2c port if so
+    if (_abort || !_stop)
+        disp_i2c_init();
+
+    // point to the next transaction, if one is present
+    // ahprintf("ct info: next %x prev")
+    if (current_transaction->next_transaction != NULL) {
+        next_transaction = current_transaction->next_transaction;
+    }
+
+    // deallocate memory associated with the current transaction
+    if (current_transaction->write_length > 0)
+        free(current_transaction->write_buffer);
+    if (current_transaction->read_length > 0)
+        free(current_transaction->read_buffer);
+    free(current_transaction);
+    current_transaction = NULL;
+    queue_depth--;
+    // ahprintf("isr completed, item dequeued; depth is now %i (s: %i, a: %i, c: %x, n: %x, l: %x)\n", queue_depth, _stop, _abort, current_transaction, next_transaction, last_transaction);
+
+    // trigger next transaction to start processing
+    if (next_transaction != NULL) {
+        // ahprintf("triggering next action\n");
+        current_transaction = next_transaction;
+        irq_set_enabled(irqn, false);
+        disp_i2c_trans(
+            current_transaction->write_buffer,
+            current_transaction->write_length,
+            current_transaction->read_buffer,
+            current_transaction->read_length
+        );
+        irq_set_enabled(irqn, true);
+    }
+}
+
+/**
+ * An internal malloc that panics if it fails.
+ *
+ * @param size_t size   Number of bytes to allocate
+ * @return void*        Pointer to allocated region
+ */
+static void *dispmalloc(size_t size)
+{
+    void *ptr = NULL;
+    ptr = malloc(size);
+    if (ptr == NULL)
+        panic("failed to allocate memory for display buffer (size: %i bytes)\n", size);
+    return ptr;
 }
 
 /**
@@ -193,8 +287,8 @@ void disp_i2c_init(void)
     irq_set_enabled(irqn, false);
 
     // since this is a fresh init, set these to false
-    abort = false;
-    stop = false;
+    _abort = false;
+    _stop = false;
 
     // unblock bus, if it's blocked
     if (check_blocked())
@@ -264,16 +358,13 @@ static void configure_tx_channel(int tx_chan, uint16_t *write_buffer, size_t wri
  * @param size_t read_length    Length of the stream to read
  * @return void
  */
-void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
+static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
 {
     // commands are sent as 16-bit transactions, including the i2c action (start/stop, 0 means just "carry on sending
     // until another instruction")
-    // @todo i've made this static, but potentially it doesn't need to be; the queue-driven isr should mean that the
-    //       disp_i2c_trans is only triggered when the previous one has completed, so the buffer can be reset and
-    //       reused. so this can probably stay where it is, but the 'static' moniker can be lost, and this can
-    //       continue to be used by the active dma operation providing it's not rewritten until the isr gets the 'stop'
-    //       and enqueues the next action.
     static uint16_t data_commands[I2C_MAX_TRANSFER];
+
+    // ahprintf("disp_i2c_trans() called with a %i byte transaction\n", write_length);
 
     if ((write_length + read_length) > I2C_MAX_TRANSFER)
         // cowardly refuse to go over maximum transfer size
@@ -285,15 +376,12 @@ void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_bu
             I2C_MAX_TRANSFER
         );
 
-    const bool writing = write_length > 0,
-               reading = read_length > 0;
+    _writing = write_length > 0;
+    _reading = read_length > 0;
 
     size_t pos;
 
-    int tx_chan = 0,
-        rx_chan = 0;
-
-    if (writing) {
+    if (_writing) {
         for (pos = 0; pos != write_length; ++pos)
             data_commands[pos] = write_buffer[pos];
 
@@ -302,7 +390,7 @@ void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_bu
 
     tx_chan = dma_claim_unused_channel(true);
 
-    if (reading) {
+    if (_reading) {
         for (pos = 0; pos != read_length; ++pos)
             data_commands[write_length + pos] = I2C_IC_DATA_CMD_CMD_BITS;
 
@@ -317,57 +405,82 @@ void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_bu
     i2c_get_hw(I2C_PORT)->tar = SSD_ADDR;
     i2c_get_hw(I2C_PORT)->enable = 1;
 
-    stop = false;
-    abort = false;
+    _stop = false;
+    _abort = false;
 
     // assign the dma channels and start the transfer
-    if (reading)
+    if (_reading)
         configure_rx_channel(rx_chan, read_buffer, read_length);
 
     configure_tx_channel(tx_chan, data_commands, write_length + read_length);
+}
 
-    // @todo THIS IS THE POINT WHERE THE TRANSFER IN/OUT HAS STARTED; ideally, we stop now and return control to the caller,
-    //       and let the isr pick up the continuation (abort/stop). what follows is not that, and needs moving to that isr.
-    sleep_ms(100); // block for 100ms; this is not permanent
+/**
+ * Queue an i2c transaction at the end of the transaction list; if no transaction is being processed, dispatch that
+ * transaction immediately.
+ *
+ * @todo it became immediately apparent to me whilst writing that the transaction list methodology won't work for
+ *       reading data. truth is, we're never going to read data from the display, so we probably don't need any
+ *       of the read handling, so it can likely be removed.
+ *
+ * @param uint8_t *write_buffer Pointer of uint8_t buffer to write to the device
+ * @param size_t write_length   Length of the write_buffer
+ * @param uint8_t *read_buffer  Pointer of uint8_t buffer to read data into
+ * @param size_t read_length    Length of data to put into the buffer
+ * @return void
+ */
+void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
+{
+    display_transaction_t *new_transaction = dispmalloc(sizeof(display_transaction_t)),
+                          *prev_transaction;
+    new_transaction->write_length = write_length;
+    new_transaction->read_length = read_length;
+    new_transaction->next_transaction = NULL;
 
-    // if an abort happened (not end of transmission), abort dma
-    if (abort || !stop) {
-        dma_channel_abort(tx_chan);
-        if (reading)
-            dma_channel_abort(rx_chan);
+    uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
+// ahprintf("disp_qt() called with %i byte transaction, curr is %x\n", write_length, current_transaction);
+    if (write_length > 0) {
+        new_transaction->write_buffer = dispmalloc(write_length);
+        memcpy(new_transaction->write_buffer, write_buffer, write_length);
     }
 
-    dma_channel_unclaim(tx_chan);
-    if (reading)
-        dma_channel_unclaim(rx_chan);
+    if (read_length > 0) {
+        new_transaction->read_buffer = dispmalloc(read_length);
+        memcpy(new_transaction->read_buffer, read_buffer, read_length);
+    }
 
-    // check for issues and reinitialise the i2c port if so
-    if (abort || !stop)
-        disp_i2c_init();
-}
+    queue_depth++;
 
-/**
- * Write a byte to a register on the i2c device
- *
- * @param uint8_t devregister   Register to write to
- * @param uint8_t byte          Byte to write
- * @return void
- */
-static inline void write_byte(uint8_t devregister, uint8_t byte)
-{
-    // write a byte to a register
-    uint8_t buffer[2] = {devregister, byte};
-    disp_i2c_trans(buffer, 2, NULL, 0);
-}
+    // check if we're the the first item in the list and act accordingly
+    if (current_transaction == NULL) {
+        // @todo something something isr race condition something
+        irq_set_enabled(irqn, false);
+        new_transaction->prev_transaction = NULL;
+        last_transaction = current_transaction = new_transaction;
 
-/**
- * Redraw the SSD1306 display
- *
- * @return void
- */
-static void disp_ssd_update()
-{
-    disp_i2c_trans(display_command, sizeof(display_command), NULL, 0);
+        disp_i2c_trans(
+            new_transaction->write_buffer,
+            new_transaction->write_length,
+            new_transaction->read_buffer,
+            new_transaction->read_length
+        );
+
+        // ahprintf("queued first item in empty queue, depth is now %i (l: %x c: %x n: %x)\n", queue_depth, last_transaction, current_transaction, new_transaction);
+        irq_set_enabled(irqn, true);
+
+        return;
+    }
+
+    // this is not the first item, so shove this on the end of the queue
+    // @todo something something isr race condition
+    irq_set_enabled(irqn, false);
+    prev_transaction = (display_transaction_t *) last_transaction->prev_transaction;
+    new_transaction->prev_transaction = last_transaction;
+    prev_transaction->next_transaction = new_transaction;
+    last_transaction = new_transaction;
+    // ahprintf("queued new item, depth is now %i\n", queue_depth);
+    irq_set_enabled(irqn, true);
+
 }
 
 /**
@@ -402,6 +515,46 @@ static void ugui_draw_pixel_cb(UG_S16 x, UG_S16 y, UG_COLOUR colour)
         default:
             *byte ^= bitmask; // invert pixel for anything else (should we just panic tho?)
     }
+}
+
+/**
+ * Redraw the SSD1306 display
+ *
+ * @return void
+ */
+static void disp_ssd_update()
+{
+    disp_queue_transaction(display_command, sizeof(display_command), NULL, 0);
+}
+
+/**
+ * Write a message to the display
+ *
+ * @param uint8_t x     x offset (in characters)
+ * @param uint8_t y     y offset (in characters)
+ * @return void
+ */
+void disp_write(uint8_t x, uint8_t y, char *message)
+{
+    UG_S16 px = x * 5,
+           py = y * 12;
+
+    UG_PutString(px, py, message);
+    disp_ssd_update();
+}
+
+/**
+ * Write a byte to a register on the i2c device
+ *
+ * @param uint8_t devregister   Register to write to
+ * @param uint8_t byte          Byte to write
+ * @return void
+ */
+static inline void write_byte(uint8_t devregister, uint8_t byte)
+{
+    // write a byte to a register
+    uint8_t buffer[2] = {devregister, byte};
+    disp_queue_transaction(buffer, 2, NULL, 0);
 }
 
 /**
@@ -454,20 +607,4 @@ void disp_ssd_init(void)
     UG_SetForecolor(C_WHITE);
     UG_FillScreen(C_BLACK);
     UG_FontSelect(&FONT_5X12);
-}
-
-/**
- * Write a message to the display
- *
- * @param uint8_t x     x offset (in characters)
- * @param uint8_t y     y offset (in characters)
- * @return void
- */
-void disp_write(uint8_t x, uint8_t y, char *message)
-{
-    UG_S16 px = x * 5,
-           py = y * 12;
-
-    UG_PutString(px, py, message);
-    disp_ssd_update();
 }
