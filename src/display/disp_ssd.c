@@ -436,7 +436,6 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
 
     // check if we're the the first item in the list and act accordingly
     if (current_transaction == NULL) {
-        // @todo something something isr race condition something
         irq_set_enabled(irqn, false);
         new_transaction->prev_transaction = NULL;
         last_transaction = current_transaction = new_transaction;
@@ -454,7 +453,6 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
     }
 
     // this is not the first item, so shove this on the end of the queue
-    // @todo something something isr race condition
     irq_set_enabled(irqn, false);
     new_transaction->prev_transaction = last_transaction;
     last_transaction->next_transaction = new_transaction;
