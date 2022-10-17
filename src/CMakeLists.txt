@@ -25,5 +25,6 @@ target_link_libraries(amigahid-pico PUBLIC
   tinyusb_board
 )
 
-pico_add_extra_outputs(amigahid-pico)
+add_compile_definitions(PICO_USE_MALLOC_MUTEX=0)
 
+pico_add_extra_outputs(amigahid-pico)

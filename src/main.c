@@ -48,6 +48,7 @@ int main(void)
 
     // say hello, trevor (only, to the display)
     disp_write(0, 0, "hello from hid-pico");
+    disp_write(0, 1, "fun msg coming soon");
 
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is

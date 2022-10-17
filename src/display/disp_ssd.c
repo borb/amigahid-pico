@@ -109,14 +109,14 @@ static void disp_i2c_init(void);
 static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length);
 
 // i2c transfer flags: stop means "finished", abort means "something failed so i gave up"
-static volatile bool _stop = false,
-                     _abort = false,
-                     _reading = false,
-                     _writing = false;
+static bool _stop = false,
+            _abort = false,
+            _reading = false,
+            _writing = false;
 
 // dma channels
-static volatile int tx_chan = 0,
-                    rx_chan = 0;
+static int tx_chan = 0,
+           rx_chan = 0;
 
 // display things: pixel command buffer (1 command followed by (x * y)/8)
 static uint8_t display_command[1 + ((SSD_WIDTH * SSD_HEIGHT) / 8)];
@@ -152,26 +152,18 @@ static void disp_ssd_i2c_irqh(void)
         _stop = true;
     }
 
-    // if an abort happened (not end of transmission), abort dma
+    // if an abort happened (not end of transmission), abort dma, reinit i2c
     if (_abort || !_stop) {
         dma_channel_abort(tx_chan);
         if (_reading)
             dma_channel_abort(rx_chan);
-    }
 
-    dma_channel_unclaim(tx_chan);
-    if (_reading)
-        dma_channel_unclaim(rx_chan);
-
-    // check for issues and reinitialise the i2c port if so
-    if (_abort || !_stop)
         disp_i2c_init();
+    }
 
     // point to the next transaction, if one is present
-    // ahprintf("ct info: next %x prev")
-    if (current_transaction->next_transaction != NULL) {
+    if (current_transaction->next_transaction != NULL)
         next_transaction = current_transaction->next_transaction;
-    }
 
     // deallocate memory associated with the current transaction
     if (current_transaction->write_length > 0)
@@ -179,13 +171,12 @@ static void disp_ssd_i2c_irqh(void)
     if (current_transaction->read_length > 0)
         free(current_transaction->read_buffer);
     free(current_transaction);
+
     current_transaction = NULL;
     queue_depth--;
-    // ahprintf("isr completed, item dequeued; depth is now %i (s: %i, a: %i, c: %x, n: %x, l: %x)\n", queue_depth, _stop, _abort, current_transaction, next_transaction, last_transaction);
 
     // trigger next transaction to start processing
     if (next_transaction != NULL) {
-        // ahprintf("triggering next action\n");
         current_transaction = next_transaction;
         irq_set_enabled(irqn, false);
         disp_i2c_trans(
@@ -196,21 +187,6 @@ static void disp_ssd_i2c_irqh(void)
         );
         irq_set_enabled(irqn, true);
     }
-}
-
-/**
- * An internal malloc that panics if it fails.
- *
- * @param size_t size   Number of bytes to allocate
- * @return void*        Pointer to allocated region
- */
-static void *dispmalloc(size_t size)
-{
-    void *ptr = NULL;
-    ptr = malloc(size);
-    if (ptr == NULL)
-        panic("failed to allocate memory for display buffer (size: %i bytes)\n", size);
-    return ptr;
 }
 
 /**
@@ -309,6 +285,17 @@ void disp_i2c_init(void)
     // activate the isr for the i2c interrupt
     irq_set_exclusive_handler(irqn, disp_ssd_i2c_irqh);
     irq_set_enabled(irqn, true);
+
+    // we might be reinitialising; free the channels if they're occupied otherwise we'll accidentally claim two more
+    // without releasing the previous ones.
+    if (tx_chan)
+        dma_channel_unclaim(tx_chan);
+    if (rx_chan)
+        dma_channel_unclaim(rx_chan);
+
+    // get some dma channels
+    tx_chan = dma_claim_unused_channel(true);
+    rx_chan = dma_claim_unused_channel(true);
 }
 
 /**
@@ -364,8 +351,6 @@ static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *
     // until another instruction")
     static uint16_t data_commands[I2C_MAX_TRANSFER];
 
-    // ahprintf("disp_i2c_trans() called with a %i byte transaction\n", write_length);
-
     if ((write_length + read_length) > I2C_MAX_TRANSFER)
         // cowardly refuse to go over maximum transfer size
         // @todo at some point, if this happens, log, complain, dequeue and continue
@@ -388,15 +373,11 @@ static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *
         data_commands[0] |= I2C_IC_DATA_CMD_RESTART_BITS;
     }
 
-    tx_chan = dma_claim_unused_channel(true);
-
     if (_reading) {
         for (pos = 0; pos != read_length; ++pos)
             data_commands[write_length + pos] = I2C_IC_DATA_CMD_CMD_BITS;
 
         data_commands[write_length] |= I2C_IC_DATA_CMD_RESTART_BITS;
-
-        rx_chan = dma_claim_unused_channel(true);
     }
 
     data_commands[write_length + read_length - 1] |= I2C_IC_DATA_CMD_STOP_BITS;
@@ -431,21 +412,23 @@ static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *
  */
 void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
 {
-    display_transaction_t *new_transaction = dispmalloc(sizeof(display_transaction_t)),
+    display_transaction_t *new_transaction = malloc(sizeof(display_transaction_t)),
                           *prev_transaction;
+    new_transaction->write_buffer = NULL;
     new_transaction->write_length = write_length;
+    new_transaction->read_buffer = NULL;
     new_transaction->read_length = read_length;
     new_transaction->next_transaction = NULL;
 
     uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
-// ahprintf("disp_qt() called with %i byte transaction, curr is %x\n", write_length, current_transaction);
+
     if (write_length > 0) {
-        new_transaction->write_buffer = dispmalloc(write_length);
+        new_transaction->write_buffer = malloc(write_length);
         memcpy(new_transaction->write_buffer, write_buffer, write_length);
     }
 
     if (read_length > 0) {
-        new_transaction->read_buffer = dispmalloc(read_length);
+        new_transaction->read_buffer = malloc(read_length);
         memcpy(new_transaction->read_buffer, read_buffer, read_length);
     }
 
@@ -465,7 +448,6 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
             new_transaction->read_length
         );
 
-        // ahprintf("queued first item in empty queue, depth is now %i (l: %x c: %x n: %x)\n", queue_depth, last_transaction, current_transaction, new_transaction);
         irq_set_enabled(irqn, true);
 
         return;
@@ -474,11 +456,9 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
     // this is not the first item, so shove this on the end of the queue
     // @todo something something isr race condition
     irq_set_enabled(irqn, false);
-    prev_transaction = (display_transaction_t *) last_transaction->prev_transaction;
     new_transaction->prev_transaction = last_transaction;
-    prev_transaction->next_transaction = new_transaction;
+    last_transaction->next_transaction = new_transaction;
     last_transaction = new_transaction;
-    // ahprintf("queued new item, depth is now %i\n", queue_depth);
     irq_set_enabled(irqn, true);
 
 }
