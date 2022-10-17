@@ -515,7 +515,7 @@ static void disp_ssd_update()
 void disp_write(uint8_t x, uint8_t y, char *message)
 {
     UG_S16 px = x * 5,
-           py = y * 12;
+           py = 2 + (y * 16);
 
     UG_PutString(px, py, message);
     disp_ssd_update();
