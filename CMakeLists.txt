@@ -7,6 +7,8 @@ set(PICO_TINYUSB_PATH "${CMAKE_SOURCE_DIR}/tinyusb/")
 
 include(cmake/pico_sdk_import.cmake)
 
+add_compile_options(-Wall -Werror)
+
 # configuration options
 
 # uncomment for debug slurry
@@ -19,6 +21,7 @@ add_compile_options(-DHIDPICO_REVISION=4)
 # add_compile_options(-DCFG_TUSB_DEBUG=2)
 
 project(amigahid-pico C CXX ASM)
+
 pico_sdk_init()
 
 add_subdirectory(src)
