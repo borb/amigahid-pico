@@ -279,6 +279,16 @@ void disp_i2c_init(void)
     gpio_pull_up(I2C_PIN_SDA);
     gpio_pull_up(I2C_PIN_SCL);
 
+    // check for presence of display in blocking mode before we do anything dma related
+    uint8_t command[2] = {0x80, SET_DISP_ON_OFF | 0x00}; // tell display to turn off
+    int result = i2c_write_blocking(I2C_PORT, SSD_ADDR, command, sizeof(command), false);
+    if (result == PICO_ERROR_GENERIC) {
+        // no device present
+        // @todo setup function pointers but point them at noops if we discover the device is not present here.
+        //       that way we don't end up wasting cycles firing data indiscriminately at something not present.
+        __asm__("nop");
+    }
+
     // set stop and abort interrupt flags
     i2c_get_hw(I2C_PORT)->intr_mask = I2C_IC_INTR_MASK_M_STOP_DET_BITS | I2C_IC_INTR_MASK_M_TX_ABRT_BITS;
 
