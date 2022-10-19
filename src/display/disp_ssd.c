@@ -11,14 +11,14 @@
  * smoothly, so it's largely wasted. then this could be shifted to that core.
  */
 
-#include "hardware/i2c.h"
-#include "hardware/irq.h"
-#include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+#include "hardware/gpio.h"
+#include "hardware/i2c.h"
+#include "hardware/irq.h"
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -56,52 +56,52 @@ static uint8_t queue_depth = 0;
  */
 typedef enum
 {
-  // Fundamental commands
-  SET_CONTRAST = 0x81,         // Double byte command to select 1 out of
-                               // 256 contrast steps.
-  SET_ENTIRE_DISP_ON = 0xa4,   // Bit0 = 0: Output follows RAM content.
-                               // Bit0 = 1: Output ignores RAM content,
-                               //           all pixels are turned on.
-  SET_NORMAL_INVERTED = 0xa6,  // Bit0 = 0: Normal display.
-                               // Bit0 = 1: Inverted display.
-  SET_DISP_ON_OFF = 0xae,      // Bit0 = 0: Display off, sleep mode.
-                               // Bit0 = 1: Display on, normal mode.
+    // Fundamental commands
+    SET_CONTRAST = 0x81,         // Double byte command to select 1 out of
+                                // 256 contrast steps.
+    SET_ENTIRE_DISP_ON = 0xa4,   // Bit0 = 0: Output follows RAM content.
+                                // Bit0 = 1: Output ignores RAM content,
+                                //           all pixels are turned on.
+    SET_NORMAL_INVERTED = 0xa6,  // Bit0 = 0: Normal display.
+                                // Bit0 = 1: Inverted display.
+    SET_DISP_ON_OFF = 0xae,      // Bit0 = 0: Display off, sleep mode.
+                                // Bit0 = 1: Display on, normal mode.
 
-  // Addressing setting Commands
-  SET_ADDRESSING_MODE = 0x20,  // Double byte command to set memory
-                               // addressing mode.
-  SET_COLUMN_ADDRESS = 0x21,   // Triple byte command to setup column start
-                               // and end address.
-  SET_PAGE_ADDRESS = 0x22,     // Triple byte command to setup page start and
-                               // end address.
+    // Addressing setting Commands
+    SET_ADDRESSING_MODE = 0x20,  // Double byte command to set memory
+                                // addressing mode.
+    SET_COLUMN_ADDRESS = 0x21,   // Triple byte command to setup column start
+                                // and end address.
+    SET_PAGE_ADDRESS = 0x22,     // Triple byte command to setup page start and
+                                // end address.
 
-  // Hardware configuration (panel resolution and layout related) commands
-  SET_DISP_START_LINE = 0x40,  // Set display RAM display start line
-                               // register. Valid values are 0 to 63.
-  SET_SEGMENT_REMAP = 0xa0,    // Bit 0 = 0: Map col addr 0 to SEG0.
-                               // Bit 0 = 1: Map col addr 127 to SEG0.
-  SET_MUX_RATIO = 0xa8,        // Double byte command to configure display
-                               // height. Valid height values are 15 to 63.
-  SET_COM_OUTPUT_DIR = 0xc0,   // Bit 3 = 0: Scan from 0 to N-1.
-                               // Bit 3 = 1: Scan from N-1 to 0. (N=height)
-  SET_DISP_OFFSET = 0xd3,      // Double byte command to configure vertical
-                               // display shift. Valid values are 0 to 63.
-  SET_COM_PINS_CONFIG = 0xda,  // Double byte command to set COM pins
-                               // hardware configuration.
+    // Hardware configuration (panel resolution and layout related) commands
+    SET_DISP_START_LINE = 0x40,  // Set display RAM display start line
+                                // register. Valid values are 0 to 63.
+    SET_SEGMENT_REMAP = 0xa0,    // Bit 0 = 0: Map col addr 0 to SEG0.
+                                // Bit 0 = 1: Map col addr 127 to SEG0.
+    SET_MUX_RATIO = 0xa8,        // Double byte command to configure display
+                                // height. Valid height values are 15 to 63.
+    SET_COM_OUTPUT_DIR = 0xc0,   // Bit 3 = 0: Scan from 0 to N-1.
+                                // Bit 3 = 1: Scan from N-1 to 0. (N=height)
+    SET_DISP_OFFSET = 0xd3,      // Double byte command to configure vertical
+                                // display shift. Valid values are 0 to 63.
+    SET_COM_PINS_CONFIG = 0xda,  // Double byte command to set COM pins
+                                // hardware configuration.
 
-  // Timing and driving scheme setting commands
-  SET_DCLK_FOSC = 0xd5,        // Double byte command to set display clock
-                               // divide ratio and oscillator frequency.
-  SET_PRECHARGE_PERIOD = 0xd9, // Double byte command to set pre-charge
-                               // period.
-  SET_VCOM_DESEL_LEVEL = 0xdb, // Double byte command to set VCOMH deselect
-                               // level.
+    // Timing and driving scheme setting commands
+    SET_DCLK_FOSC = 0xd5,        // Double byte command to set display clock
+                                // divide ratio and oscillator frequency.
+    SET_PRECHARGE_PERIOD = 0xd9, // Double byte command to set pre-charge
+                                // period.
+    SET_VCOM_DESEL_LEVEL = 0xdb, // Double byte command to set VCOMH deselect
+                                // level.
 
-  // Charge pump command
-  SET_CHARGE_PUMP = 0x8d,      // Double byte command to enable/disable
-                               // charge pump.
-                               // Byte2 = 0x10: Disable charge pump.
-                               // Byte2 = 0x14: Enable charge pump.
+    // Charge pump command
+    SET_CHARGE_PUMP = 0x8d,      // Double byte command to enable/disable
+                                // charge pump.
+                                // Byte2 = 0x10: Disable charge pump.
+                                // Byte2 = 0x14: Enable charge pump.
 } ssd1306_command_t;
 
 // declare i2c init & trans; resolves a circular dependency between the i2c irqh, trans and init functions
@@ -457,7 +457,6 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
     last_transaction->next_transaction = new_transaction;
     last_transaction = new_transaction;
     irq_set_enabled(irqn, true);
-
 }
 
 /**
