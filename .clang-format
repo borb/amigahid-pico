@@ -1,0 +1,18 @@
+---
+BasedOnStyle: llvm
+
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterStruct: true
+  AfterExternBlock: true
+  AfterEnum: true
+
+IndentCaseLabels: true
+
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
