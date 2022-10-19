@@ -7072,8 +7072,10 @@ void _UG_ButtonUpdate(UG_WINDOW* wnd, UG_OBJECT* obj)
       if ( obj->state & OBJ_STATE_VISIBLE )
       {
          /* Full redraw necessary? */
-         if ( (obj->state & OBJ_STATE_REDRAW) || (btn->state & BTN_STATE_ALWAYS_REDRAW) )
-         {
+         if (
+             ((obj->state & OBJ_STATE_REDRAW) || (btn->state & BTN_STATE_ALWAYS_REDRAW)) &&
+             (UG_WindowGetArea(wnd, &a) != UG_RESULT_FAIL)
+         ) {
             UG_WindowGetArea(wnd,&a);
             obj->a_abs.xs = obj->a_rel.xs + a.xs;
             obj->a_abs.ys = obj->a_rel.ys + a.ys;
@@ -7640,9 +7642,8 @@ void _UG_CheckboxUpdate(UG_WINDOW* wnd, UG_OBJECT* obj)
    /* -------------------------------------------------- */
    /* Object update section                              */
    /* -------------------------------------------------- */
-   if ( obj->state & OBJ_STATE_UPDATE )
+   if ( (obj->state & OBJ_STATE_UPDATE) && (UG_WindowGetArea(wnd, &a) != UG_RESULT_FAIL) )
    {
-      UG_WindowGetArea(wnd,&a);
       obj->a_abs.xs = obj->a_rel.xs + a.xs;
       obj->a_abs.ys = obj->a_rel.ys + a.ys;
       obj->a_abs.xe = obj->a_rel.xe + a.xs;
@@ -8057,9 +8058,8 @@ void _UG_TextboxUpdate(UG_WINDOW* wnd, UG_OBJECT* obj)
       if ( obj->state & OBJ_STATE_VISIBLE )
       {
          /* Full redraw necessary? */
-         if ( obj->state & OBJ_STATE_REDRAW )
+         if ( (obj->state & OBJ_STATE_REDRAW) && (UG_WindowGetArea(wnd, &a) != UG_RESULT_FAIL) )
          {
-            UG_WindowGetArea(wnd,&a);
             obj->a_abs.xs = obj->a_rel.xs + a.xs;
             obj->a_abs.ys = obj->a_rel.ys + a.ys;
             obj->a_abs.xe = obj->a_rel.xe + a.xs;
@@ -8206,9 +8206,8 @@ void _UG_ImageUpdate(UG_WINDOW* wnd, UG_OBJECT* obj)
       if ( obj->state & OBJ_STATE_VISIBLE )
       {
          /* Full redraw necessary? */
-         if ( obj->state & OBJ_STATE_REDRAW )
+         if ( (obj->state & OBJ_STATE_REDRAW) && (UG_WindowGetArea(wnd, &a) != UG_RESULT_FAIL) )
          {
-            UG_WindowGetArea(wnd,&a);
             /* ToDo: more/better image features */
             obj->a_abs.xs = obj->a_rel.xs + a.xs;
             obj->a_abs.ys = obj->a_rel.ys + a.ys;
