@@ -12,13 +12,13 @@ add_compile_options(-Wall -Werror)
 # configuration options
 
 # uncomment for debug slurry
-add_compile_options(-DDEBUG_MESSAGES=1)
+add_compile_definitions(DEBUG_MESSAGES=1)
 
 # set the board revision (changes which pins are mapped to which ports)
-add_compile_options(-DHIDPICO_REVISION=4)
+add_compile_definitions(HIDPICO_REVISION=4)
 
 # debugging for tinyusb - be warned that it can cause timing issues causing things to break
-# add_compile_options(-DCFG_TUSB_DEBUG=2)
+# add_compile_definitions(CFG_TUSB_DEBUG=2)
 
 project(amigahid-pico C CXX ASM)
 
