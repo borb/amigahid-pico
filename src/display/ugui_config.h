@@ -11,12 +11,12 @@
 
 /* Enable color mode */
 //#define USE_COLOR_RGB888   // RGB = 0xFF,0xFF,0xFF
-#define USE_COLOR_RGB565   // RGB = 0bRRRRRGGGGGGBBBBB
+#define USE_COLOR_RGB565 // RGB = 0bRRRRRGGGGGGBBBBB
 
 /* Enable needed fonts here */
 //#define  USE_FONT_4X6
 //#define  USE_FONT_5X8
-#define  USE_FONT_5X12
+#define USE_FONT_5X12
 //#define  USE_FONT_6X8
 //#define  USE_FONT_6X10
 //#define  USE_FONT_7X12
@@ -36,12 +36,12 @@
 /* Specify platform-dependent integer types here */
 
 #define __UG_FONT_DATA const
-typedef uint8_t      UG_U8;
-typedef int8_t       UG_S8;
-typedef uint16_t     UG_U16;
-typedef int16_t      UG_S16;
-typedef uint32_t     UG_U32;
-typedef int32_t      UG_S32;
+typedef uint8_t UG_U8;
+typedef int8_t UG_S8;
+typedef uint16_t UG_U16;
+typedef int16_t UG_S16;
+typedef uint32_t UG_U32;
+typedef int32_t UG_S32;
 
 /* Feature enablers */
 #define USE_PRERENDER_EVENT
