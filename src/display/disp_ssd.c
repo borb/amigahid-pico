@@ -412,8 +412,7 @@ static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *
  */
 void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
 {
-    display_transaction_t *new_transaction = malloc(sizeof(display_transaction_t)),
-                          *prev_transaction;
+    display_transaction_t *new_transaction = malloc(sizeof(display_transaction_t));
     new_transaction->write_buffer = NULL;
     new_transaction->write_length = write_length;
     new_transaction->read_buffer = NULL;
