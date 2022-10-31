@@ -21,12 +21,6 @@
 #include "config.h"
 #include "tusb_config.h"
 
-// @todo move when putting in right place
-#include "hardware/dma.h"
-#include "hardware/gpio.h"
-#include "hardware/i2c.h"
-#include "hardware/irq.h"
-
 // defined within usb_hid.c
 extern void hid_app_task(void);
 
@@ -36,21 +30,15 @@ int main(void)
     // tinyusb board init; led, uart, button, usb
     board_init();
 
+    // initialise the i2c controller and send the init sequence to the display
+    disp_ssd_init();
+
     // say hello, trevor ("hello, trevor")
     dbgcons_init();
 
     // initialise the usb stack
     // defining CFG_TUSB_RHPORT0_MODE as OPT_MODE_HOST will put the controller into host mode
     tusb_init();
-
-    // initialise the i2c controller and send the init sequence to the display
-    disp_ssd_init();
-
-    // say hello, trevor (only, to the display)
-    disp_write(0, 0, "hello from hid-pico");
-    disp_write(0, 1, "fun msg coming soon");
-    disp_write(0, 2, "line 3 line 3 line 3");
-    disp_write(0, 3, "line 4 line 4 line 4");
 
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is
