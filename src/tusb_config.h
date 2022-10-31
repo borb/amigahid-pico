@@ -12,18 +12,32 @@
 #ifndef _TUSB_CONFIG_H
 #define _TUSB_CONFIG_H
 
+// rhport setting
+#ifndef BOARD_TUH_RHPORT
+#   define BOARD_TUH_RHPORT 0
+#endif
+
+// maximum speed permitted (which on a pico is usb 1.1)
+#ifndef BOARD_TUH_MAX_SPEED
+#   define BOARD_TUH_MAX_SPEED OPT_MODE_DEFAULT_SPEED
+#endif
+
 // should be defined by the pico board.h
 #ifndef CFG_TUSB_MCU
 #   error CFG_TUSB_MCU is missing; please check your configuration (ported to another board?)
 #endif
 
-// stack in host mode (on the pico, can be host or device, not both [otg])
-#define CFG_TUSB_RHPORT0_MODE OPT_MODE_HOST
-
-// BEGIN: borrowed from tusb config; may not have relevance on this platform
 #ifndef CFG_TUSB_OS
 #   define CFG_TUSB_OS OPT_OS_NONE
 #endif
+
+// enable the host stack (if not explicitly enabled)
+#ifndef CFG_TUH_ENABLED
+#   define CFG_TUH_ENABLED 1
+#endif
+
+// max speed from board
+#define CFG_TUH_MAX_SPEED BOARD_TUH_MAX_SPEED
 
 #ifndef CFG_TUSB_MEM_SECTION
 #   define CFG_TUSB_MEM_SECTION
@@ -32,10 +46,9 @@
 #ifndef CFG_TUSB_MEM_ALIGN
 #   define CFG_TUSB_MEM_ALIGN __attribute__ ((aligned(4)))
 #endif
-// END: borrowed from tusb config
 
 // usb descriptor buffer size
-#define CFG_TUH_ENUMERATION_BUFSIZE 512
+#define CFG_TUH_ENUMERATION_BUFSIZE 256
 
 // supported devices & interfaces; tusb examples use a convention of multi-purpose
 // constants where >0 may also mean multiple endpoints on a single device
