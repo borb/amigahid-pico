@@ -25,7 +25,6 @@
 #include "config.h"
 #include "display/disp_ssd.h"
 #include "display/ugui.h"
-#include "util/output.h"
 
 #define SSD_WIDTH           128
 #define SSD_HEIGHT          64
@@ -105,8 +104,12 @@ typedef enum
 } ssd1306_command_t;
 
 // declare i2c init & trans; resolves a circular dependency between the i2c irqh, trans and init functions
-static void disp_i2c_init(void);
+static bool disp_i2c_init(void);
 static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length);
+
+// declare disp_write wrapper destinations for the pointer
+void _noop_disp_write(uint8_t x, uint8_t y, char *message);
+void _real_disp_write(uint8_t x, uint8_t y, char *message);
 
 // i2c transfer flags: stop means "finished", abort means "something failed so i gave up"
 static bool _stop = false,
@@ -128,6 +131,9 @@ static UG_GUI gui;
 
 // convert from ugui's vernacular to a proper word
 typedef UG_COLOR UG_COLOUR;
+
+// point disp_write(...) at _real_disp_write(...); it'll point to _noop_disp_write(...) if init fails
+void (*disp_write)(uint8_t x, uint8_t y, char *message) = _real_disp_write;
 
 /**
  * Interrupt service routine for i2c device: is called on transaction abort or completion
@@ -252,9 +258,9 @@ static void unblock(void)
 /**
  * Initialise the i2c controller, and set up the interrupt service routine
  *
- * @return void
+ * @return bool true if successful, false if not present or an error occurred
  */
-void disp_i2c_init(void)
+bool disp_i2c_init(void)
 {
     // aaaand if, say, an rp2041 arrives with >2 i2c interfaces, this is where the breakage exists :D
     uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
@@ -286,8 +292,10 @@ void disp_i2c_init(void)
         // no device present
         // @todo setup function pointers but point them at noops if we discover the device is not present here.
         //       that way we don't end up wasting cycles firing data indiscriminately at something not present.
-        __asm__("nop");
+        disp_write = _noop_disp_write;
+        return false;
     }
+    disp_write = _real_disp_write;
 
     // set stop and abort interrupt flags
     i2c_get_hw(I2C_PORT)->intr_mask = I2C_IC_INTR_MASK_M_STOP_DET_BITS | I2C_IC_INTR_MASK_M_TX_ABRT_BITS;
@@ -306,6 +314,8 @@ void disp_i2c_init(void)
     // get some dma channels
     tx_chan = dma_claim_unused_channel(true);
     rx_chan = dma_claim_unused_channel(true);
+
+    return true;
 }
 
 /**
@@ -514,13 +524,21 @@ static void disp_ssd_update()
 }
 
 /**
+ * In the case that i2c init fails, this is where disp_write is pointed
+ */
+void _noop_disp_write(uint8_t x, uint8_t y, char *message)
+{
+    __asm__("nop");
+}
+
+/**
  * Write a message to the display
  *
  * @param uint8_t x     x offset (in characters)
  * @param uint8_t y     y offset (in characters)
  * @return void
  */
-void disp_write(uint8_t x, uint8_t y, char *message)
+void _real_disp_write(uint8_t x, uint8_t y, char *message)
 {
     UG_S16 px = x * 5,
            py = 2 + (y * 16);
@@ -575,7 +593,8 @@ void disp_ssd_init(void)
     };
 
     // start the i2c device control
-    disp_i2c_init();
+    if (disp_i2c_init() == false)
+        return;
 
     // commands sent to the ssd1306 are written to a single location on register 0x80, and
     // as such cannot be sent as a block. even command parameters must be sent to the same
