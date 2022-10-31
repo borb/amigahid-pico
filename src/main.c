@@ -36,9 +36,8 @@ int main(void)
     // say hello, trevor ("hello, trevor")
     dbgcons_init();
 
-    // initialise the usb stack
-    // defining CFG_TUSB_RHPORT0_MODE as OPT_MODE_HOST will put the controller into host mode
-    tusb_init();
+    // initialise the usb host stack on the rhport from tusb_config.h
+    tuh_init(BOARD_TUH_RHPORT);
 
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is
