@@ -8,12 +8,15 @@
  * debug console routines.
  */
 
+#include <stdint.h>
+#include <stdio.h>
+
 #include "debug_cons.h"
+#include "display/disp_ssd.h"
 #include "output.h"
 
-#include <stdint.h>
-
-struct {
+struct
+{
     uint8_t hid_keyboard, hid_mouse, hid_controller;
     uint8_t plug_events, unplug_events;
 } debug_counters;
@@ -35,6 +38,8 @@ void dbgcons_init()
 
 void dbgcons_print_counters()
 {
+    char linebuf[32] = "";
+
     ahprintf(
         VT_CUP_POS VT_EL_LIN
         "[system] key: %02x mouse: %02x joy: %02x total plug: %02x total unplug: %02x\n",
@@ -45,6 +50,16 @@ void dbgcons_print_counters()
         debug_counters.plug_events,
         debug_counters.unplug_events
     );
+
+    sprintf(
+        linebuf,
+        "usb    k:%02x m:%02x j:%02x",
+        debug_counters.hid_keyboard,
+        debug_counters.hid_mouse,
+        debug_counters.hid_controller
+    );
+
+    disp_write(0, 0, linebuf);
 }
 
 void dbgcons_plug(enum debug_plug_types devtype)
@@ -89,12 +104,22 @@ void dbgcons_unplug(enum debug_plug_types devtype)
 
 void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
 {
+    char linebuf[32] = "";
+
     ahprintf(
         VT_CUP_POS VT_EL_LIN
         "[amigak] hid in: %02x amiga out: %02x up/down: %s\n",
         4, 1,
         incode, outcode, updown
     );
+
+    sprintf(
+        linebuf,
+        "amikb hid:%02x ami:%02x %s",
+        incode, outcode, updown
+    );
+
+    disp_write(0, 1, linebuf);
 }
 
 void dbgcons_amiga_mod(uint8_t outcode, char updown)
