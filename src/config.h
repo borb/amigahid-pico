@@ -17,6 +17,11 @@
 #  define HIDPICO_REVISION 4
 #endif
 
+// the pico has an onboard led on gp25; use this as a default indicator
+#ifndef INDICATOR_LED
+#  define INDICATOR_LED PICO_DEFAULT_LED_PIN
+#endif
+
 #if HIDPICO_REVISION == 2
 #  define I2C_PORT      i2c0
 #  define I2C_PIN_SDA   4

@@ -59,6 +59,9 @@ void dbgcons_plug(enum debug_plug_types devtype)
         case AP_H_CONTROLLER:
             debug_counters.hid_controller++;
             break;
+        case AP_H_UNKNOWN:
+        default:
+            break;
     }
     debug_counters.plug_events++;
     dbgcons_print_counters();
@@ -75,6 +78,9 @@ void dbgcons_unplug(enum debug_plug_types devtype)
             break;
         case AP_H_CONTROLLER:
             debug_counters.hid_controller--;
+            break;
+        case AP_H_UNKNOWN:
+        default:
             break;
     }
     debug_counters.unplug_events++;

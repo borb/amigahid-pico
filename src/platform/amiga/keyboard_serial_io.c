@@ -45,6 +45,7 @@ static inline void _keyboard_gpio_set(uint gpio, enum _keyboard_pin_state state)
     gpio_set_dir(gpio, GPIO_IN);
 }
 
+/*
 // _.-._.-._ @todo i've not been doing sync correctly for sooooooo long; fix/remove? -._.-._.-
 int64_t sync_timer_cb(alarm_id_t id, void *user_data)
 {
@@ -52,6 +53,7 @@ int64_t sync_timer_cb(alarm_id_t id, void *user_data)
     _keyboard_gpio_set(KBD_AMIGA_DAT, LOW);
     sync_state = SYNC;
 }
+*/
 
 uint8_t get_modifier_from_hid(hid_keyboard_modifier_bm_t modifier)
 {
@@ -74,6 +76,10 @@ void amiga_init()
     gpio_init(KBD_AMIGA_DAT);
     gpio_init(KBD_AMIGA_CLK);
     gpio_init(KBD_AMIGA_RST);
+
+    gpio_set_function(KBD_AMIGA_DAT, GPIO_FUNC_SIO);
+    gpio_set_function(KBD_AMIGA_CLK, GPIO_FUNC_SIO);
+    gpio_set_function(KBD_AMIGA_RST, GPIO_FUNC_SIO);
 
     // all pins are active low, meaning if /rst is current at 0, the amiga is held in reset.
     // rectify this by putting all pins in open drain. this should bring the amiga to boot.
