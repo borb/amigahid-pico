@@ -10,6 +10,11 @@
  * if this file looks kind of sketchy, i'm just at the beginning of my
  * understanding of the tinyusb stack. apologies whilst i get to grips with
  * the terminology, or mapping it to what i understand of it.
+ *
+ * part of the structures and code in this file have been repurposed from
+ * https://github.com/fruit-bat/tinyusb in the hid_micro_parser branch, until
+ * such a time that a) the PR is accepted upstream or b) tinyusb has its own
+ * parser.
  */
 
 // these reside within the tinyusb sdk and are not part of this project source
@@ -20,6 +25,7 @@
 #include <stdint.h>
 
 #include "tusb_config.h"
+#include "usb_hid.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
 #include "platform/amiga/quad_mouse.h"
@@ -91,9 +97,23 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
         // ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
     }
 
+    // report protocol returns packets in the hid report format from the usb report descriptor block.
+    // it enables us to use device features outside of the limited "hidbp" mode, which is intended for bios, boot menus,
+    // and limited resource devices. e.g. mouse wheel, multimedia keys, application controls.
+    if (hid_protocol == HID_ITF_PROTOCOL_MOUSE) {
+        tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+    }
+
     if (!tuh_hid_receive_report(dev_addr, instance)) {
         // ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
     }
+}
+
+void parse_mouse_report_descriptor(uint8_t const *desc_report, uint16_t desc_len, uint8_t dev_addr, uint8_t instance)
+{
+    uint32_t eusage = 0;
+    tuh_hid_rip_state_t pstate;
+
 }
 
 /**
