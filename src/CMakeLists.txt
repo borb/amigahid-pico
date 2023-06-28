@@ -6,6 +6,7 @@ add_executable(amigahid-pico
 add_subdirectory(platform)
 add_subdirectory(util)
 add_subdirectory(display)
+add_subdirectory(hw)
 
 # make the src subdirectory availabe in the include path so tinyusb can find tusb_config.h
 target_include_directories(amigahid-pico PUBLIC
