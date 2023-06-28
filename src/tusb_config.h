@@ -54,7 +54,7 @@
 // constants where >0 may also mean multiple endpoints on a single device
 #define CFG_TUH_HUB 4 // permit usb hubs (pico has a single port)
 #define CFG_TUH_CDC 0 // no serial
-#define CFG_TUH_HID 4 // keyboard/mouse/joystick; 4 endpoints maximum per device
+#define CFG_TUH_HID 4 // keyboard/mouse/joystick; 4 devices maximum (i think)
 #define CFG_TUH_MSC 0 // no mass storage
 #define CFG_TUH_VENDOR 0 // not sure what this is but no anyway
 

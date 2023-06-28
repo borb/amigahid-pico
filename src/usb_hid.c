@@ -60,6 +60,8 @@ static struct _hid_info
 {
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
+    const uint8_t *desc_report;
+    uint16_t desc_len;
 } hid_info[CFG_TUH_HID];
 
 static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
@@ -82,31 +84,43 @@ void hid_app_task(void)
  * @param desc_report Report descriptor
  * @param desc_len    Length of descriptor
  */
-void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
+void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
     dbgcons_plug(hid_protocol_type[hid_protocol]);
 
-    // this part doesn't entirely make sense to me; hid devices come in two modes, boot protocol and report;
-    // as i understand it, boot proto is intended for simplistic software such as bios which don't want to
-    // implement a full stack. so if we're not in boot proto mode, display... something?
-    // this might be number of interfaces on a device (think wireless kbd+mouse receiver). maybe. speculation.
+    /**
+     * trying to understand this. don't fully fathom this yet but working on it.
+     *
+     * if hid_protocol is keyboard or mouse then it's probably a simple hidbp device.
+     *
+     * if it has no protocol, the protocol is implemented at interface level, and each interface comes with a descriptor
+     * (and can also be in hidbp mode until switched out of it, e.g. combined kb/mouse in boot mode).
+     *
+     * this code says "if you are hid but have no protocol, let's look at your descriptor block".
+     * tuh_hid_parse_report_descriptor() extracts the device type (kb/mouse/controller/etc) from the usage page but is
+     * simplistic and throws the rest of the data away.
+     * we need to parse desc_report when a report arrives in order to extract the data we want. i don't think this
+     * data is available after this moment in time, so copy it into hid_info[n]
+     */
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-        // ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
+
+        hid_info[instance].desc_report = malloc(desc_len);
+        hid_info[instance].desc_len = desc_len;
+        memcpy(hid_info[instance].desc_report, desc_report, (size_t) desc_len);
     }
 
-    // report protocol returns packets in the hid report format from the usb report descriptor block.
-    // it enables us to use device features outside of the limited "hidbp" mode, which is intended for bios, boot menus,
-    // and limited resource devices. e.g. mouse wheel, multimedia keys, application controls.
+    // switch mouse into report mode (out of hidbp)
     if (hid_protocol == HID_ITF_PROTOCOL_MOUSE) {
         tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
     }
 
-    if (!tuh_hid_receive_report(dev_addr, instance)) {
-        // ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
-    }
+    tuh_hid_receive_report(dev_addr, instance);
+    // if (!tuh_hid_receive_report(dev_addr, instance)) {
+    //     ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
+    // }
 }
 
 void parse_mouse_report_descriptor(uint8_t const *desc_report, uint16_t desc_len, uint8_t dev_addr, uint8_t instance)
@@ -125,6 +139,10 @@ void parse_mouse_report_descriptor(uint8_t const *desc_report, uint16_t desc_len
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+
+    if (hid_info[instance].desc_report != NULL) {
+        free(hid_info[instance].desc_report);
+    }
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
 }
@@ -159,8 +177,9 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
     // continue to request to receive report
     tuh_hid_receive_report(dev_addr, instance);
-    // if (!tuh_hid_receive_report(dev_addr, instance))
-        // ahprintf("[ERROR] unable to receive hid event report\n");
+    // if (!tuh_hid_receive_report(dev_addr, instance)) {
+    //     ahprintf("[ERROR] unable to receive hid event report\n");
+    // }
 }
 
 /**
@@ -216,7 +235,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
     }
 
     if (!report_info) {
-        // ahprintf("[ERROR] report_info pointer was not set during process_report(), value: $%x, report_count was %d\n", report_info, report_count);
+        // report_info wasn't set in the above loop so we cannot continue
         return;
     }
 
@@ -251,7 +270,6 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
     static hid_mouse_report_t last_report = { 0 };
 
     if (report == NULL) {
-        // ahprintf("[hid] report was null, aborting mouse event\n");
         return;
     }
 
@@ -270,9 +288,6 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
         amiga_quad_mouse_button(AQM_RIGHT, true);
     if (!(report->buttons & MOUSE_BUTTON_RIGHT) && (last_report.buttons & MOUSE_BUTTON_RIGHT))
         amiga_quad_mouse_button(AQM_RIGHT, false);
-
-    // this would spam horrendously, so even when debug messages are on, this is probably... too much.
-    // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
 
     if (report->x || report->y)
         amiga_quad_mouse_set_motion(report->x, report->y);
