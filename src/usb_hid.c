@@ -25,7 +25,6 @@
 #include <stdint.h>
 
 #include "tusb_config.h"
-#include "usb_hid.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
 #include "platform/amiga/quad_mouse.h"
@@ -121,13 +120,6 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
     // if (!tuh_hid_receive_report(dev_addr, instance)) {
     //     ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
     // }
-}
-
-void parse_mouse_report_descriptor(uint8_t const *desc_report, uint16_t desc_len, uint8_t dev_addr, uint8_t instance)
-{
-    uint32_t eusage = 0;
-    tuh_hid_rip_state_t pstate;
-
 }
 
 /**
