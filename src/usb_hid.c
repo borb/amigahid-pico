@@ -23,12 +23,12 @@
 
 // other includes
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "tusb_config.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
 #include "platform/amiga/quad_mouse.h"
-#include "util/output.h"
 #include "util/debug_cons.h"
 
 // maximum number of reports per hid device
@@ -59,7 +59,7 @@ static struct _hid_info
 {
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
-    const uint8_t *desc_report;
+    uint8_t *desc_report;
     uint16_t desc_len;
 } hid_info[CFG_TUH_HID];
 
@@ -86,8 +86,18 @@ void hid_app_task(void)
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    char msgbuf[120] = "";
 
     dbgcons_plug(hid_protocol_type[hid_protocol]);
+
+    if (desc_len > 0) {
+        hid_info[instance].desc_report = malloc(desc_len);
+        hid_info[instance].desc_len = desc_len;
+        memcpy(hid_info[instance].desc_report, desc_report, (size_t) desc_len);
+
+        sprintf(msgbuf, "Copied report descriptor of size 0x%x to address 0x%x\n", desc_len, (unsigned int) desc_report);
+        dbgcons_message(msgbuf);
+    }
 
     /**
      * trying to understand this. don't fully fathom this yet but working on it.
@@ -105,10 +115,6 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
      */
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-
-        hid_info[instance].desc_report = malloc(desc_len);
-        hid_info[instance].desc_len = desc_len;
-        memcpy(hid_info[instance].desc_report, desc_report, (size_t) desc_len);
     }
 
     // switch mouse into report mode (out of hidbp)

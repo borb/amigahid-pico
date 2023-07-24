@@ -122,6 +122,16 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
     disp_write(0, 1, linebuf);
 }
 
+void dbgcons_message(char *message)
+{
+    ahprintf(
+        VT_CUP_POS VT_EL_LIN
+        "[msg] %s\n",
+        5, 1,
+        message
+    );
+}
+
 void dbgcons_amiga_mod(uint8_t outcode, char updown)
 {
     // ls rs cl ct la ra lam ram
