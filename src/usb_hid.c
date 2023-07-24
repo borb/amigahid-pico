@@ -118,7 +118,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
     }
 
     // switch mouse into report mode (out of hidbp)
-    if (hid_protocol == HID_ITF_PROTOCOL_MOUSE) {
+    if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (hid_info[instance].desc_report != NULL)) {
         tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
     }
 
