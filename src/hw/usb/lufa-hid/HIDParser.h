@@ -66,6 +66,14 @@
 #ifndef __HIDPARSER_H__
 #define __HIDPARSER_H__
 
+#ifndef __INCLUDE_FROM_USB_DRIVER
+#define __INCLUDE_FROM_USB_DRIVER
+#endif
+
+#ifndef __INCLUDE_FROM_HID_DRIVER
+#define __INCLUDE_FROM_HID_DRIVER
+#endif
+
 	/* Includes: */
 		#include "Common.h"
 

@@ -20,15 +20,18 @@
 // these reside within the tinyusb sdk and are not part of this project source
 #include "bsp/board.h"
 #include "tusb.h"
+#include "usb_hid.h"
 
 // other includes
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "tusb_config.h"
+#include "hw/usb/lufa-hid/HIDParser.h"
 #include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
 #include "platform/amiga/keyboard.h"
 #include "platform/amiga/quad_mouse.h"
+#include "tusb_config.h"
 #include "util/debug_cons.h"
 
 // maximum number of reports per hid device
@@ -59,13 +62,16 @@ static struct _hid_info
 {
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
-    uint8_t *desc_report;
-    uint16_t desc_len;
+    HID_ReportInfo_t parsed_report; // this looks eerily like the line above... @todo resolve duplication?
+    bool in_report;
 } hid_info[CFG_TUH_HID];
+
+static uint8_t led_report = 0;
 
 static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
 static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report);
-static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
+static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
+static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
 
 void hid_app_task(void)
 {
@@ -74,6 +80,43 @@ void hid_app_task(void)
 
 // callback functions; methods below suffixed with "_cb" are called by tinyusb
 // when processing certain hid events.
+
+/**
+ * Callback invoked by LUFA's HIDParser to filter which aspects of the report we want to keep
+ * This has been loosely duplicated from the LUFA example "MouseHostWithParser"
+ * (naming is not similar to the rest of hid-pico because the LUFA parser depends on this naming)
+ *
+ * @param HID_ReportItem_t current_item     Pointer to the HID report item currently being parsed
+ * @return bool                             true if we want the report item, false if we do not
+ */
+bool CALLBACK_HIDParser_FilterHIDReportItem(HID_ReportItem_t* const current_item)
+{
+	bool is_mouse = false;
+
+    // ensure the item we are parsing belongs to a mouse by working up through the node tree; page must be DCTRL, usage must be mouse
+    // @todo we possibly don't need this, since tuh_hid_mount_cb will filter for us
+	for (
+        HID_CollectionPath_t* current_path = current_item->CollectionPath;
+        current_path != NULL;
+        current_path = current_path->Parent
+    ) {
+		if ((current_path->Usage.Page  == USAGE_PAGE_GENERIC_DCTRL) && (current_path->Usage.Usage == USAGE_MOUSE)) {
+			is_mouse = true;
+			break;
+		}
+	}
+
+	// exit now unless we found a mouse
+    // @todo see above @todo :D
+	if (!is_mouse)
+        return false;
+
+    // these are the usage page items we want to store in our slimmed down descriptor
+	return (
+        (current_item->Attributes.Usage.Page == USAGE_PAGE_BUTTON) ||
+	    (current_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL)
+    );
+}
 
 /**
  * HID connection callback
@@ -86,46 +129,30 @@ void hid_app_task(void)
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
-    char msgbuf[120] = "";
+    hid_info[instance].in_report = false;
 
     dbgcons_plug(hid_protocol_type[hid_protocol]);
 
-    if (desc_len > 0) {
-        hid_info[instance].desc_report = malloc(desc_len);
-        hid_info[instance].desc_len = desc_len;
-        memcpy(hid_info[instance].desc_report, desc_report, (size_t) desc_len);
-
-        sprintf(msgbuf, "Copied report descriptor of size 0x%x to address 0x%x\n", desc_len, (unsigned int) desc_report);
-        dbgcons_message(msgbuf);
-    }
-
     /**
-     * trying to understand this. don't fully fathom this yet but working on it.
-     *
-     * if hid_protocol is keyboard or mouse then it's probably a simple hidbp device.
-     *
-     * if it has no protocol, the protocol is implemented at interface level, and each interface comes with a descriptor
-     * (and can also be in hidbp mode until switched out of it, e.g. combined kb/mouse in boot mode).
-     *
-     * this code says "if you are hid but have no protocol, let's look at your descriptor block".
-     * tuh_hid_parse_report_descriptor() extracts the device type (kb/mouse/controller/etc) from the usage page but is
-     * simplistic and throws the rest of the data away.
-     * we need to parse desc_report when a report arrives in order to extract the data we want. i don't think this
-     * data is available after this moment in time, so copy it into hid_info[n]
+     * if device is marked as being hid but having no protocol, count the report descriptors and store them; one of the
+     * reports should have a usage/page combination matching a device type. is this a weird scenario?
      */
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
     }
 
     // switch mouse into report mode (out of hidbp)
-    if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (hid_info[instance].desc_report != NULL)) {
-        tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+    if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (desc_report != NULL) && (desc_len > 0)) {
+        if (
+            (USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful) &&
+            tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT)
+        ) {
+            // we managed to parse the hid report descriptor and put the mouse into report mode; high five
+            hid_info[instance].in_report = true;
+        }
     }
 
     tuh_hid_receive_report(dev_addr, instance);
-    // if (!tuh_hid_receive_report(dev_addr, instance)) {
-    //     ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
-    // }
 }
 
 /**
@@ -137,10 +164,6 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
-
-    if (hid_info[instance].desc_report != NULL) {
-        free(hid_info[instance].desc_report);
-    }
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
 }
@@ -163,7 +186,11 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
-            handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *)report);
+            if (hid_info[instance].in_report) {
+                handle_event_mouse_report(dev_addr, instance, (hid_mouse_report_t const *) report);
+            } else {
+                handle_event_mouse_hidbp(dev_addr, instance, (hid_mouse_report_t const *) report);
+            }
             break;
 
         default:
@@ -247,7 +274,11 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 
             case HID_USAGE_DESKTOP_MOUSE:
                 // mouse event
-                handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *) report);
+                if (hid_info[instance].in_report) {
+                    handle_event_mouse_report(dev_addr, instance, (hid_mouse_report_t const *) report);
+                } else {
+                    handle_event_mouse_hidbp(dev_addr, instance, (hid_mouse_report_t const *) report);
+                }
                 break;
 
             default:
@@ -257,13 +288,13 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 }
 
 /**
- * Handle the mouse event sent to us.
+ * Handle the hidbp mouse event sent to us.
  *
- * @param dev_addr  Device address of report
- * @param instance  Instance number of reporting device
- * @param report    Address of hid_mouse_report_t structure of current mouse event
+ * @param uint8_t dev_addr              Device address of report
+ * @param uint8_t instance              Instance number of reporting device
+ * @param hid_mouse_report_t report     Address of hid_mouse_report_t structure of current mouse event
  */
-static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
+static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
 {
     static hid_mouse_report_t last_report = { 0 };
 
@@ -293,7 +324,62 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
     last_report = *report;
 }
 
-static uint8_t led_report = 0;
+/**
+ * Handle the HID report mouse event sent to us.
+ *
+ * @param uint8_t dev_addr              Device address of report
+ * @param uint8_t instance              Instance number of reporting device
+ * @param hid_mouse_report_t report     Address of hid_mouse_report_t structure of current mouse event
+ */
+static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
+{
+    // rewritten to adhere to how we've wrapped this into tusb, from lufa's MouseHostWithParser example code
+    for (
+        uint8_t report_number = 0;
+        report_number < hid_info[instance].parsed_report.TotalReportItems;
+        report_number++
+    ) {
+        // temporary item pointer to next report item
+        HID_ReportItem_t *report_item = &hid_info[instance].parsed_report.ReportItems[report_number];
+
+        if (
+            (report_item->Attributes.Usage.Page == USAGE_PAGE_BUTTON) &&
+            (report_item->ItemType == HID_REPORT_ITEM_In)
+        ) {
+            // mouse button
+            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+                // descriptor data is not in report; continue to next item
+                continue;
+            }
+
+            // @todo handle buttons here
+        } else if (
+            (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
+            (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL) &&
+            (report_item->ItemType == HID_REPORT_ITEM_In)
+        ) {
+            // scroll wheel
+            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+                // descriptor data is not in report; continue to next item
+                continue;
+            }
+
+            // @todo handle scroll wheel here
+        } else if (
+            (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
+            ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y)) &&
+            (report_item->ItemType == HID_REPORT_ITEM_In)
+        ) {
+            // x/y motion
+            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+                // descriptor data is not in report; continue to next item
+                continue;
+            }
+
+            // @todo handle motion event here
+        }
+    }
+}
 
 /**
  * Handle the keyboard event sent to us.
