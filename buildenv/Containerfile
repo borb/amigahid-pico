@@ -1,0 +1,11 @@
+FROM docker.io/library/debian:bookworm
+
+RUN \
+  apt-get update && apt-get -y dist-upgrade && \
+  apt-get install -y make cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3 gcc g++ && \
+  apt-get clean
+
+RUN \
+  mkdir /project
+
+WORKDIR /project
