@@ -33,6 +33,7 @@
 #include "platform/amiga/quad_mouse.h"
 #include "tusb_config.h"
 #include "util/debug_cons.h"
+#include "util/output.h"
 
 // maximum number of reports per hid device
 #define MAX_REPORT 4
@@ -352,7 +353,10 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
                 continue;
             }
 
+            bool button_state = HID_ALIGN_DATA(report_item, bool);
+
             // @todo handle buttons here
+            ahprintf("button data: %d, n: %d, s: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL) &&
@@ -364,7 +368,10 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
                 continue;
             }
 
+            int16_t wheel_delta = HID_ALIGN_DATA(report_item, int16_t);
+
             // @todo handle scroll wheel here
+            ahprintf("wheel delta: %d, s: %d\n", wheel_delta, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y)) &&
@@ -376,7 +383,10 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
                 continue;
             }
 
+            int16_t motion_delta = HID_ALIGN_DATA(report_item, int16_t);
+
             // @todo handle motion event here
+            ahprintf("h/x motion delta: %d, s: %d\n", motion_delta, report_item->Attributes.BitSize);
         }
     }
 }
