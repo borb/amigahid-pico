@@ -37,6 +37,4 @@ void dbgcons_unplug(enum debug_plug_types devtype);
 
 void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown);
 
-void dbgcons_message(char *message);
-
 #endif // _PLATFORM_COMMON_DEBUG_CONS_H

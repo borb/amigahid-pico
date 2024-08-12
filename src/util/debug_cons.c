@@ -13,7 +13,6 @@
 
 #include "debug_cons.h"
 #include "display/disp_ssd.h"
-#include "output.h"
 
 struct
 {
@@ -23,10 +22,6 @@ struct
 
 void dbgcons_init()
 {
-    ahprintf(
-        VT_ED_CLS "amigahid-pico by nine <nine@aphlor.org>, https://github.com/borb/amigahid-pico"
-    );
-
     debug_counters.hid_keyboard = 0;
     debug_counters.hid_mouse = 0;
     debug_counters.hid_controller = 0;
@@ -39,17 +34,6 @@ void dbgcons_init()
 void dbgcons_print_counters()
 {
     char linebuf[32] = "";
-
-    ahprintf(
-        VT_CUP_POS VT_EL_LIN
-        "[system] key: %02x mouse: %02x joy: %02x total plug: %02x total unplug: %02x\n",
-        3, 1,
-        debug_counters.hid_keyboard,
-        debug_counters.hid_mouse,
-        debug_counters.hid_controller,
-        debug_counters.plug_events,
-        debug_counters.unplug_events
-    );
 
     sprintf(
         linebuf,
@@ -106,13 +90,6 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
 {
     char linebuf[32] = "";
 
-    ahprintf(
-        VT_CUP_POS VT_EL_LIN
-        "[amigak] hid in: %02x amiga out: %02x up/down: %s\n",
-        4, 1,
-        incode, outcode, updown
-    );
-
     sprintf(
         linebuf,
         "amikb hid:%02x ami:%02x %s",
@@ -120,16 +97,6 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
     );
 
     disp_write(0, 1, linebuf);
-}
-
-void dbgcons_message(char *message)
-{
-    ahprintf(
-        VT_CUP_POS VT_EL_LIN
-        "[msg] %s\n",
-        5, 1,
-        message
-    );
 }
 
 void dbgcons_amiga_mod(uint8_t outcode, char updown)
