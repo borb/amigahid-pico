@@ -37,7 +37,5 @@ void ahfprintf(FILE *stream, const char *fmt, ...)
 
 void ahvfprintf(FILE *stream, const char *fmt, va_list args)
 {
-#ifdef DEBUG_MESSAGES
     vfprintf(stream, fmt, args);
-#endif
 }

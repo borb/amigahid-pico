@@ -11,9 +11,6 @@ add_compile_options(-Wall -Werror)
 
 # configuration options
 
-# uncomment for debug slurry
-add_compile_definitions(DEBUG_MESSAGES=1)
-
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_definitions(HIDPICO_REVISION=4)
 
