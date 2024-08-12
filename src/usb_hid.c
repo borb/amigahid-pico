@@ -132,6 +132,15 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
     hid_info[instance].in_report = false;
 
+    ahprintf(
+        "HID device attached, address %02x, instance %02x, protocol %02x, report located at %08x of length %04x byte(s)\n",
+        dev_addr,
+        instance,
+        hid_protocol,
+        desc_report,
+        desc_len
+    );
+
     dbgcons_plug(hid_protocol_type[hid_protocol]);
 
     /**
@@ -140,16 +149,21 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
      */
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
         hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
+        ahprintf("Interface protocol is 'none'; device has %d report descriptors.\n", hid_info[instance].report_count);
     }
 
     // switch mouse into report mode (out of hidbp)
     if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (desc_report != NULL) && (desc_len > 0)) {
+        ahprintf("Device is a mouse and has a report descriptor; attempting to parse descriptor and switch mouse out of hidbp.\n");
         if (
             (USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful) &&
             tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT)
         ) {
             // we managed to parse the hid report descriptor and put the mouse into report mode; high five
             hid_info[instance].in_report = true;
+            ahprintf("Switch complete. Full feature mode should proceed for this device.\n");
+        } else {
+            ahprintf("Didn't complete the switch. Remaining in hidbp.\n");
         }
     }
 
@@ -165,6 +179,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+
+    ahprintf("HID device detached, address %02x, instance %02x, protocol %02x.\n", dev_addr, instance, hid_protocol);
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
 }
