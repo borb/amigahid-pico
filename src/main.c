@@ -8,6 +8,8 @@
  * main entry point for amigahid-pico.
  */
 
+#include <stdbool.h>
+
 // these reside within the tinyusb sdk and are not part of this project source
 #include "bsp/board.h"
 #include "tusb.h"
@@ -46,7 +48,7 @@ int main(void)
     // start amiga mouse emulation
     amiga_quad_mouse_init();
 
-    while (1) {
+    while (true) {
         // run host mode jobs (hotplug events, packet io callbacks)
         tuh_task();
 
