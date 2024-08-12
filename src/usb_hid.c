@@ -340,13 +340,14 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
         report_number < hid_info[instance].parsed_report.TotalReportItems;
         report_number++
     ) {
-        // temporary item pointer to next report item
+        // temporary item pointer to next (current?) report item
         HID_ReportItem_t *report_item = &hid_info[instance].parsed_report.ReportItems[report_number];
 
-        if (
-            (report_item->Attributes.Usage.Page == USAGE_PAGE_BUTTON) &&
-            (report_item->ItemType == HID_REPORT_ITEM_In)
-        ) {
+        if (report_item->ItemType != HID_REPORT_ITEM_In) {
+            continue;
+        }
+
+        if (report_item->Attributes.Usage.Page == USAGE_PAGE_BUTTON) {
             // mouse button
             if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
                 // descriptor data is not in report; continue to next item
@@ -359,8 +360,7 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
             ahprintf("button data: %d, n: %d, s: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
-            (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL) &&
-            (report_item->ItemType == HID_REPORT_ITEM_In)
+            (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL)
         ) {
             // scroll wheel
             if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
@@ -374,8 +374,7 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
             ahprintf("wheel delta: %d, s: %d\n", wheel_delta, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
-            ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y)) &&
-            (report_item->ItemType == HID_REPORT_ITEM_In)
+            ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y))
         ) {
             // x/y motion
             if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
