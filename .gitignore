@@ -1,3 +1,4 @@
 /build
 /.dccache
 /kicad/amigahid-pico-backups
+/src/gen_version.h

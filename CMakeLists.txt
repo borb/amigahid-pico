@@ -9,6 +9,24 @@ include(cmake/pico_sdk_import.cmake)
 
 add_compile_options(-Wall -Werror)
 
+execute_process(COMMAND sh -c "git log --pretty=format:%h -n 1"
+                OUTPUT_VARIABLE GIT_REVISION
+                ERROR_QUIET)
+string(STRIP "${GIT_REVISION}" GIT_REVIS)
+
+execute_process(COMMAND sh -c "git diff --quiet --exit-code || echo -dirty"
+                OUTPUT_VARIABLE GIT_DIRTY
+                ERROR_QUIET)
+string(STRIP "${GIT_DIRTY}" GIT_DIRTY)
+
+execute_process(COMMAND git rev-parse --abbrev-ref HEAD
+                OUTPUT_VARIABLE GIT_BRANCH
+                ERROR_QUIET)
+string(STRIP "${GIT_BRANCH}" GIT_BRANCH)
+
+set(_HP_VERSION "#define _HP_VERSION \"${GIT_REVISION}${GIT_DIRTY} (${GIT_BRANCH})\"")
+file(WRITE "${CMAKE_SOURCE_DIR}/src/gen_version.h" "${_HP_VERSION}\n")
+
 # configuration options
 
 # set the board revision (changes which pins are mapped to which ports)
