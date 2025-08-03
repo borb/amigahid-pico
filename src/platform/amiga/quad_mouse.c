@@ -96,6 +96,18 @@ void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y)
     // @todo use fifo write here to unblock core1 thread?
 }
 
+void amiga_quad_mouse_set_motion_x(int16_t in_x)
+{
+    x = in_x;
+    motion_flag = true;
+}
+
+void amiga_quad_mouse_set_motion_y(int16_t in_y)
+{
+    y = in_y;
+    motion_flag = true;
+}
+
 void amiga_quad_mouse_motion()
 {
     // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");

@@ -20,5 +20,7 @@ void amiga_quad_mouse_init();
 void amiga_quad_mouse_motion();
 void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed);
 void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y);
+void amiga_quad_mouse_set_motion_x(int16_t in_x);
+void amiga_quad_mouse_set_motion_y(int16_t in_y);
 
 #endif

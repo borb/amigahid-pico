@@ -133,7 +133,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
     hid_info[instance].in_report = false;
 
     ahprintf(
-        "HID device attached, address %02x, instance %02x, protocol %02x, report located at %08x of length %04x byte(s)\n",
+        "HID device attached, address 0x%02x, instance 0x%02x, protocol 0x%02x, report located at 0x%08x of length 0x%04x byte(s)\n",
         dev_addr,
         instance,
         hid_protocol,
@@ -161,7 +161,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
         ) {
             // we managed to parse the hid report descriptor and put the mouse into report mode; high five
             hid_info[instance].in_report = true;
-            ahprintf("Switch complete. Full feature mode should proceed for this device.\n");
+            ahprintf("Switch complete. Full feature mode should proceed for this device. Parsed report located at 0x%08x\n", &hid_info[instance].parsed_report);
         } else {
             ahprintf("Didn't complete the switch. Remaining in hidbp.\n");
         }
@@ -350,6 +350,7 @@ static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mou
  */
 static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
 {
+    ahprintf("\n\nMouse report parse start; report at 0x%08x, parsed report at 0x%08x.\n", report, &hid_info[instance].parsed_report);
     // rewritten to adhere to how we've wrapped this into tusb, from lufa's MouseHostWithParser example code
     for (
         uint8_t report_number = 0;
@@ -373,7 +374,7 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
             bool button_state = HID_ALIGN_DATA(report_item, bool);
 
             // @todo handle buttons here
-            ahprintf("button data: %d, n: %d, s: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
+            ahprintf("Button data: %d, n: %d, s: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL)
@@ -387,7 +388,7 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
             int16_t wheel_delta = HID_ALIGN_DATA(report_item, int16_t);
 
             // @todo handle scroll wheel here
-            ahprintf("wheel delta: %d, s: %d\n", wheel_delta, report_item->Attributes.BitSize);
+            ahprintf("Wheel delta: %d, s: %d\n", wheel_delta, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y))
@@ -400,10 +401,25 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
 
             int16_t motion_delta = HID_ALIGN_DATA(report_item, int16_t);
 
+            if (report_item->Attributes.Usage.Usage == USAGE_X) {
+                amiga_quad_mouse_set_motion_x(motion_delta);
+            }
+
+            if (report_item->Attributes.Usage.Usage == USAGE_Y) {
+                amiga_quad_mouse_set_motion_y(motion_delta);
+            }
+
             // @todo handle motion event here
-            ahprintf("h/x motion delta: %d, s: %d\n", motion_delta, report_item->Attributes.BitSize);
+            ahprintf(
+                "%c motion delta: %d, s: %d\n",
+                (report_item->Attributes.Usage.Usage == USAGE_X) ? 'x' : 'y',
+                motion_delta,
+                report_item->Attributes.BitSize
+            );
         }
     }
+    ahprintf("Mouse report parse end.\n");
+
 }
 
 /**
