@@ -18,7 +18,7 @@
  */
 
 // these reside within the tinyusb sdk and are not part of this project source
-#include "bsp/board.h"
+#include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_hid.h"
 
@@ -72,7 +72,7 @@ static uint8_t led_report = 0;
 static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
 static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report);
 static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
-static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
+static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t report_len);
 
 void hid_app_task(void)
 {
@@ -130,10 +130,15 @@ bool CALLBACK_HIDParser_FilterHIDReportItem(HID_ReportItem_t* const current_item
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    uint16_t vendor_id, product_id;
     hid_info[instance].in_report = false;
 
+    tuh_vid_pid_get(dev_addr, &vendor_id, &product_id);
+
     ahprintf(
-        "HID device attached, address 0x%02x, instance 0x%02x, protocol 0x%02x, report located at 0x%08x of length 0x%04x byte(s)\n",
+        "HID device attached (%04x:%04x), address 0x%02x, instance 0x%02x, protocol 0x%02x, report located at 0x%08x of length 0x%04x byte(s)\n",
+        vendor_id,
+        product_id,
         dev_addr,
         instance,
         hid_protocol,
@@ -156,8 +161,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
     if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (desc_report != NULL) && (desc_len > 0)) {
         ahprintf("Device is a mouse and has a report descriptor; attempting to parse descriptor and switch mouse out of hidbp.\n");
         if (
-            (USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful) &&
-            tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT)
+            (USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful) /*&&
+            tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT)*/
         ) {
             // we managed to parse the hid report descriptor and put the mouse into report mode; high five
             hid_info[instance].in_report = true;
@@ -203,8 +208,9 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
+            ahprintf("\n\nMouse event triggered via report_received_cb()\n");
             if (hid_info[instance].in_report) {
-                handle_event_mouse_report(dev_addr, instance, (hid_mouse_report_t const *) report);
+                handle_event_mouse_report(dev_addr, instance, report, len);
             } else {
                 handle_event_mouse_hidbp(dev_addr, instance, (hid_mouse_report_t const *) report);
             }
@@ -291,8 +297,9 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 
             case HID_USAGE_DESKTOP_MOUSE:
                 // mouse event
+                ahprintf("\n\nMouse event triggered via process_report()\n");
                 if (hid_info[instance].in_report) {
-                    handle_event_mouse_report(dev_addr, instance, (hid_mouse_report_t const *) report);
+                    handle_event_mouse_report(dev_addr, instance, report, len);
                 } else {
                     handle_event_mouse_hidbp(dev_addr, instance, (hid_mouse_report_t const *) report);
                 }
@@ -344,13 +351,14 @@ static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mou
 /**
  * Handle the HID report mouse event sent to us.
  *
- * @param uint8_t dev_addr              Device address of report
- * @param uint8_t instance              Instance number of reporting device
- * @param hid_mouse_report_t report     Address of hid_mouse_report_t structure of current mouse event
+ * @param uint8_t  dev_addr             Device address of report
+ * @param uint8_t  instance             Instance number of reporting device
+ * @param uint8_t  report               Address of buffer containing raw report
+ * @param uint16_t report_len           Length in bytes of report buffer
  */
-static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
+static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t report_len)
 {
-    ahprintf("\n\nMouse report parse start; report at 0x%08x, parsed report at 0x%08x.\n", report, &hid_info[instance].parsed_report);
+    ahprintf("Mouse report parse start; report at 0x%08x of 0x%04x byte(s), parsed report at 0x%08x.\n", report, report_len, &hid_info[instance].parsed_report);
     // rewritten to adhere to how we've wrapped this into tusb, from lufa's MouseHostWithParser example code
     for (
         uint8_t report_number = 0;
@@ -360,42 +368,51 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
         // temporary item pointer to next (current?) report item
         HID_ReportItem_t *report_item = &hid_info[instance].parsed_report.ReportItems[report_number];
 
+        ahprintf(
+            "ItemType is 0x%02x, Usage.Page is 0x%04x, Usage.Usage is 0x%04x\n",
+            report_item->ItemType,
+            report_item->Attributes.Usage.Page,
+            report_item->Attributes.Usage.Usage
+        );
         if (report_item->ItemType != HID_REPORT_ITEM_In) {
             continue;
         }
 
         if (report_item->Attributes.Usage.Page == USAGE_PAGE_BUTTON) {
             // mouse button
-            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+            if (!USB_GetHIDReportItemInfo(report, report_item)) {
                 // descriptor data is not in report; continue to next item
+                ahprintf("Didn't get button info out of report, skipping.\n");
                 continue;
             }
 
             bool button_state = HID_ALIGN_DATA(report_item, bool);
 
             // @todo handle buttons here
-            ahprintf("Button data: %d, n: %d, s: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
+            ahprintf("Button data: %d, index: %d, bitsize: %d\n", button_state, report_item->Attributes.Usage.Usage, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             (report_item->Attributes.Usage.Usage == USAGE_SCROLL_WHEEL)
         ) {
             // scroll wheel
-            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+            if (!USB_GetHIDReportItemInfo(report, report_item)) {
                 // descriptor data is not in report; continue to next item
+                ahprintf("Didn't get wheel info out of report, skipping.\n");
                 continue;
             }
 
             int16_t wheel_delta = HID_ALIGN_DATA(report_item, int16_t);
 
             // @todo handle scroll wheel here
-            ahprintf("Wheel delta: %d, s: %d\n", wheel_delta, report_item->Attributes.BitSize);
+            ahprintf("Wheel delta: %d, bitsize: %d\n", wheel_delta, report_item->Attributes.BitSize);
         } else if (
             (report_item->Attributes.Usage.Page == USAGE_PAGE_GENERIC_DCTRL) &&
             ((report_item->Attributes.Usage.Usage == USAGE_X) || (report_item->Attributes.Usage.Usage == USAGE_Y))
         ) {
             // x/y motion
-            if (!USB_GetHIDReportItemInfo((const uint8_t *)report, report_item)) {
+            if (!USB_GetHIDReportItemInfo(report, report_item)) {
                 // descriptor data is not in report; continue to next item
+                ahprintf("Didn't get motion info out of report, skipping.\n");
                 continue;
             }
 
@@ -411,7 +428,7 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, hid_mo
 
             // @todo handle motion event here
             ahprintf(
-                "%c motion delta: %d, s: %d\n",
+                "%c motion delta: %d, bitsize: %d\n",
                 (report_item->Attributes.Usage.Usage == USAGE_X) ? 'x' : 'y',
                 motion_delta,
                 report_item->Attributes.BitSize

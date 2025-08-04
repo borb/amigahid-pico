@@ -4,9 +4,6 @@
  *
  * released under the terms of the Eclipse Public License 2.0 (EPL-2.0).
  * please find the complete license text at https://spdx.org/licenses/EPL-2.0
- *
- * usb stack configuration; this file is included from the project source
- * by the tinyusb sdk so must be available within the include path
  */
 
 #ifndef _USB_HID_H

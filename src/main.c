@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 // these reside within the tinyusb sdk and are not part of this project source
-#include "bsp/board.h"
+#include "bsp/board_api.h"
 #include "tusb.h"
 #include "pico/platform.h"
 
@@ -49,6 +49,8 @@ int main(void)
 
     // initialise the usb host stack on the rhport from tusb_config.h
     ahprintf("About to init USB stack.\n");
+    // @todo this is not the right place for this: needs moving... somewhere?
+    tuh_hid_set_default_protocol(HID_PROTOCOL_REPORT);
     tuh_init(BOARD_TUH_RHPORT);
     ahprintf("USB stack init complete.\n\n");
 
