@@ -35,7 +35,7 @@
 #include "util/debug_cons.h"
 #include "util/output.h"
 
-// maximum number of reports per hid device
+// maximum number of reports per hid device (only honoured by devices not in report mode, full report parsed by borrowed lufa code)
 #define MAX_REPORT 4
 
 // repetitive modifier check macros (@todo probably better iterated in future?)
@@ -63,7 +63,7 @@ static struct _hid_info
 {
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
-    HID_ReportInfo_t parsed_report; // this looks eerily like the line above... @todo resolve duplication?
+    HID_ReportInfo_t parsed_report;
     bool in_report;
 } hid_info[CFG_TUH_HID];
 
