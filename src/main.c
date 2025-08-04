@@ -70,6 +70,9 @@ int main(void)
         // run host mode jobs (hotplug events, packet io callbacks)
         tuh_task();
 
+        // run hid tasks
+        hid_app_task();
+
         // amiga keyboard service routine
         amiga_service();
 

@@ -77,6 +77,17 @@ static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, uint8_
 void hid_app_task(void)
 {
     // null function to satisfy stack
+
+    /**
+     * @todo
+     *
+     * this is the place to switch out of hidbp mode rather than the mount callback.
+     * create a pending dev_addr/instance list and set_protocol report on each one, then clear the entry.
+     * might not need to process the hid report structure in here, that may be fine in the callback.
+     *
+     * this means we can avoid blanket report mode for all devices, and thus not force keyboards into report
+     * mode until some code is written for it.
+     */
 }
 
 // callback functions; methods below suffixed with "_cb" are called by tinyusb
