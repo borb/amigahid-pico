@@ -201,6 +201,13 @@ void amiga_assert_reset()
 {
     // ahprintf("[akb] *** RESET BEING ASSERTED ***\n");
     _keyboard_gpio_set(KBD_AMIGA_RST, LOW);
+
+    // this will hold clk low for 500ms, which is useful for a2000/3000/4000 and perhaps cdtv/cd32.
+    // the pause is beneficial for ensuring the reset signal is picked up by the amiga.
+    // (thanks @reinauer for submitting this in issue #31 and testing on your a3000)
+    _keyboard_gpio_set(KBD_AMIGA_CLK, LOW);
+    sleep_us(500000);
+    _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
 }
 
 void amiga_release_reset()
