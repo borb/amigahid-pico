@@ -17,6 +17,9 @@ jobs:
       - name: Get the source
         uses: actions/checkout@v4
 
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+
       - name: Run cmake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
