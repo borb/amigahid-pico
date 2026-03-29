@@ -6,9 +6,6 @@ on:
       - 'development'
       - 'devel/*'
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,6 +13,7 @@ jobs:
     strategy:
       matrix:
         board: [BOARD_HIDPICO_REV2, BOARD_HIDPICO_REV4]
+        build-type: [Release, Debug]
 
     steps:
       - name: Additional dependencies
@@ -29,7 +27,25 @@ jobs:
           submodules: recursive
 
       - name: Run cmake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBOARD_TYPE=${{matrix.board}}
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DBOARD_TYPE=${{matrix.board}}
 
       - name: Build
-        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+        run: cmake --build ${{github.workspace}}/build --config ${{matrix.build-type}}
+
+      - name: Copy build artifacts to output
+        run: |
+          mkdir -p output
+          if test "${{github.ref_type}}" = "tag"; then
+            _build_id="${{github.ref_name}}"
+          else
+            _build_id="${{github.sha}}"
+          fi
+          _destfile_prefix="amigahid-pico-${{matrix.build-type}}-${{matrix.board}}-${_build_id}"
+          cp -v "build/src/amigahid-pico.elf" "output/${_destfile_prefix}.elf"
+          cp -v "build/src/amigahid-pico.uf2" "output/${_destfile_prefix}.uf2"
+
+      - name: Upload artifacts for build
+        uses: actions/upload-artifacts@v7
+        with:
+          name: Binary build
+          path: output/*
