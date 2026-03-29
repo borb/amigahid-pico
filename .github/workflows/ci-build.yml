@@ -55,7 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/upload-artifact/merge@v7
+      - name: Combine build matrix
+        uses: actions/upload-artifact/merge@v7
         with:
-          name: output
+          name: output-${{github.sha}}
           pattern: output-*
+          delete-merged: true
