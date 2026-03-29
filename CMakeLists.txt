@@ -3,8 +3,13 @@ cmake_minimum_required(VERSION 3.13..3.27)
 set(ENV{PICO_SDK_PATH} "${CMAKE_SOURCE_DIR}/pico-sdk/")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(PICO_PLATFORM rp2040)
-set(PICO_BOARD pico)
+
+if (NOT PICO_PLATFORM)
+	set(PICO_PLATFORM rp2040)
+endif ()
+if (NOT PICO_BOARD)
+	set(PICO_BOARD pico)
+endif ()
 
 include(pico-sdk/pico_sdk_init.cmake)
 
