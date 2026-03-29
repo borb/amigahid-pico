@@ -45,7 +45,7 @@ jobs:
           cp -v "build/src/amigahid-pico.uf2" "output/${_destfile_prefix}.uf2"
 
       - name: Upload artifacts for build
-        uses: actions/upload-artifacts@v7
+        uses: actions/upload-artifact@v7
         with:
           name: Binary build
           path: output/*
