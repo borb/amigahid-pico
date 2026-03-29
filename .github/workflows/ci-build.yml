@@ -34,7 +34,7 @@ jobs:
 
       - name: Copy build artifacts to output
         run: |
-          _destdir="output-${{matrix.build-type}-${{matrix.board}}"
+          _destdir="output-${{matrix.build-type}}-${{matrix.board}}"
           mkdir -p "${_destdir}"
           if test "${{github.ref_type}}" = "tag"; then
             _build_id="${{github.ref_name}}"
