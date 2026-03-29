@@ -13,16 +13,17 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
-#ifndef HIDPICO_REVISION
-#  define HIDPICO_REVISION 4
-#endif
-
 // the pico has an onboard led on gp25; use this as a default indicator
 #ifndef INDICATOR_LED
 #  define INDICATOR_LED PICO_DEFAULT_LED_PIN
 #endif
 
-#if HIDPICO_REVISION == 2
+#if defined(BOARD_HIDPICO_REV2)
+#  define HAS_SCREEN
+#  define HAS_KEYBOARD
+#  define HAS_PORT1
+#  define HAS_PORT2
+
 #  define I2C_PORT      i2c0
 #  define I2C_PIN_SDA   4
 #  define I2C_PIN_SCL   5
@@ -39,7 +40,12 @@
 #  define QM1_AMIGA_B1  22
 #  define QM1_AMIGA_B2  26
 #  define QM1_AMIGA_B3  27
-#elif HIDPICO_REVISION == 4
+#elif defined(BOARD_HIDPICO_REV4)
+#  define HAS_SCREEN
+#  define HAS_KEYBOARD
+#  define HAS_PORT1
+#  define HAS_PORT2
+
 #  define I2C_PORT      i2c1
 #  define I2C_PIN_SDA   2
 #  define I2C_PIN_SCL   3
@@ -56,6 +62,8 @@
 #  define QM1_AMIGA_B1  11
 #  define QM1_AMIGA_B2  12
 #  define QM1_AMIGA_B3  13
+#else
+#  error Board type has not been defined; check cmake command line
 #endif
 
 #endif // _CONFIG_H

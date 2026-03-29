@@ -1,0 +1,63 @@
+name: compile & stash
+
+on:
+  push:
+    branches:
+      - 'development'
+      - 'devel/*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        board: [BOARD_HIDPICO_REV2, BOARD_HIDPICO_REV4]
+        build-type: [Release, Debug]
+
+    steps:
+      - name: Additional dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc-arm-none-eabi
+
+      - name: Get the source
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Run cmake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build-type}} -DBOARD_TYPE=${{matrix.board}}
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{matrix.build-type}}
+
+      - name: Copy build artifacts to output
+        run: |
+          _destdir="output-${{matrix.build-type}}-${{matrix.board}}"
+          mkdir -p "${_destdir}"
+          if test "${{github.ref_type}}" = "tag"; then
+            _build_id="${{github.ref_name}}"
+          else
+            _build_id="${{github.sha}}"
+          fi
+          _destfile_prefix="amigahid-pico-${{matrix.build-type}}-${{matrix.board}}-${_build_id}"
+          cp -v "build/src/amigahid-pico.elf" "${_destdir}/${_destfile_prefix}.elf"
+          cp -v "build/src/amigahid-pico.uf2" "${_destdir}/${_destfile_prefix}.uf2"
+
+      - name: Upload artifacts for build
+        uses: actions/upload-artifact@v7
+        with:
+          name: output-${{matrix.build-type}}-${{matrix.board}}
+          path: output-*
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Combine build matrix
+        uses: actions/upload-artifact/merge@v7
+        with:
+          name: output-${{github.sha}}
+          pattern: output-*
+          delete-merged: true
