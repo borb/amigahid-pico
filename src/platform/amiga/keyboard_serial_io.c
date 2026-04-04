@@ -164,7 +164,8 @@ void amiga_send(uint8_t keycode, bool up)
         amiga_release_reset();
     }
 
-    // copy input code, roll left, move msb to lsb
+    if (!in_reset) {
+	// copy input code, roll left, move msb to lsb
     sendcode = keycode | (up == true ? 0x80 : 0x00);
     sendcode <<= 1;
     if (up || (keycode & 0x80))
@@ -186,6 +187,7 @@ void amiga_send(uint8_t keycode, bool up)
         // shift the bit pattern for next iteration
         bit_mask >>= 1;
     }
+	}
 
     // set /dat to input for 5ms to signal end of key
     _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
@@ -207,13 +209,13 @@ void amiga_assert_reset()
     // (thanks @reinauer for submitting this in issue #31 and testing on your a3000)
     _keyboard_gpio_set(KBD_AMIGA_CLK, LOW);
     sleep_us(500000);
-    _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
 }
 
 void amiga_release_reset()
 {
     // ahprintf("[akb] *** RESET BEING RELEASED ***\n");
     _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
+    _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
 }
 
 void amiga_service()
