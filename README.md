@@ -1,5 +1,7 @@
 # amigahid-pico
 
+please note: the interesting stuff goes into the [development](https://github.com/borb/amigahid-pico/tree/development) branch, so if main seems slow, check it out.
+
 ## introduction
 
 amigahid-pico uses the rp2040 microcontroller (e.g. the raspberry pi pico) in a carrier board to attach usb input devices to a standard amiga without the need for a usb stack on the amiga itself.
