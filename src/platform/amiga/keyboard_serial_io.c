@@ -164,30 +164,37 @@ void amiga_send(uint8_t keycode, bool up)
         amiga_release_reset();
     }
 
+    /**
+     * send the keycode to the amiga
+     *
+     * @todo hook up real keyboard to logic analyser and check if keycodes are sent whilst reset is being asserted
+     * (or reverse engineer the keyboard binary from the 6571); this avoids sending keycodes whilst in reset, but
+     * it would be good to verify that this is the situation for the original controller
+     */
     if (!in_reset) {
-	// copy input code, roll left, move msb to lsb
-    sendcode = keycode | (up == true ? 0x80 : 0x00);
-    sendcode <<= 1;
-    if (up || (keycode & 0x80))
-        sendcode |= 1;
+        // copy input code, roll left, move msb to lsb
+        sendcode = keycode | (up ? 0x80 : 0x00);
+        sendcode <<= 1;
+        if (up || (keycode & 0x80))
+            sendcode |= 1;
 
-    for (bit_position = 0; bit_position < 8; bit_position++) {
-        if (sendcode & bit_mask)
-            _keyboard_gpio_set(KBD_AMIGA_DAT, LOW);
-        else
-            _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
+        for (bit_position = 0; bit_position < 8; bit_position++) {
+            if (sendcode & bit_mask)
+                _keyboard_gpio_set(KBD_AMIGA_DAT, LOW);
+            else
+                _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
 
-        // hold /dat for 20us before pulsing /clk, then wait 50us before next bit
-        sleep_us(20);
-        _keyboard_gpio_set(KBD_AMIGA_CLK, LOW);
-        sleep_us(20);
-        _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
-        sleep_us(50); // @todo should be 20?
+            // hold /dat for 20us before pulsing /clk, then wait 50us before next bit
+            sleep_us(20);
+            _keyboard_gpio_set(KBD_AMIGA_CLK, LOW);
+            sleep_us(20);
+            _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
+            sleep_us(50); // @todo should be 20?
 
-        // shift the bit pattern for next iteration
-        bit_mask >>= 1;
+            // shift the bit pattern for next iteration
+            bit_mask >>= 1;
+        }
     }
-	}
 
     // set /dat to input for 5ms to signal end of key
     _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
