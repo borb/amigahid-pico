@@ -20,11 +20,23 @@
 #include "hardware/gpio.h"
 
 // mouse motion values, used between core0 and core1
-volatile int8_t x = 0, y = 0;
-volatile bool motion_flag = false;
+volatile int16_t x = 0, y = 0;
 volatile uint8_t motion_divider = 2;
 
 enum _mouse_pin_state { LOW, HIGH };
+
+static inline int16_t _aqm_accumulate_motion(volatile int16_t *axis, int16_t delta)
+{
+    int32_t sum = *axis + delta;
+
+    if (sum > INT16_MAX)
+        sum = INT16_MAX;
+    else if (sum < INT16_MIN)
+        sum = INT16_MIN;
+
+    *axis = (int16_t)sum;
+    return *axis;
+}
 
 static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
 {
@@ -87,21 +99,20 @@ void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
     }
 }
 
-void amiga_quad_mouse_set_motion(int8_t in_x, int8_t in_y)
+void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y)
 {
-    x = in_x;
-    y = in_y;
-    motion_flag = true;
-
-    // @todo use fifo write here to unblock core1 thread?
+    _aqm_accumulate_motion(&x, in_x);
+    _aqm_accumulate_motion(&y, in_y);
 }
 
 void amiga_quad_mouse_motion()
 {
     // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
-    int8_t out_x, out_y;
-    uint8_t quad_mx_state = 0, quad_my_state = 0;
-    bool motion_x_skip = false, motion_y_skip = false;
+    int16_t out_x, out_y;
+    int16_t in_x, in_y;
+    int16_t x_residue = 0, y_residue = 0;
+    uint8_t quad_mx_state = 1, quad_my_state = 1;
+    uint8_t divider;
 
     /**
      * a little note about quadrature motion state.
@@ -116,22 +127,22 @@ void amiga_quad_mouse_motion()
      */
 
     while (1) {
-        // @todo use blocking fifo read here to prevent wasting cycles?
-        out_x = x;
-        out_y = y;
+        // Batch new deltas so slow axis-only motion is not lost when we divide
+        // high-DPI mouse movement down to Amiga quadrature steps.
+        in_x = x;
+        in_y = y;
         x = y = 0;
-        motion_flag = false;
+        divider = motion_divider ? motion_divider : 1;
 
-        while (((out_x != 0) || (out_y != 0)) && !motion_flag) {
-            motion_x_skip = false;
-            motion_y_skip = false;
+        x_residue += in_x;
+        y_residue += in_y;
+        out_x = x_residue / divider;
+        out_y = y_residue / divider;
+        x_residue %= divider;
+        y_residue %= divider;
 
-            if ((out_x % motion_divider) != 0)
-                motion_x_skip = true;
-            if ((out_y % motion_divider) != 0)
-                motion_y_skip = true;
-
-            if ((out_x != 0) && !motion_x_skip) {
+        while ((out_x != 0) || (out_y != 0)) {
+            if (out_x != 0) {
                 // handle x-axis motion
                 if (out_x < 0)
                     quad_mx_state--;
@@ -154,7 +165,7 @@ void amiga_quad_mouse_motion()
             if (out_x < 0) out_x++;
             if (out_x > 0) out_x--;
 
-            if ((out_y != 0) && !motion_y_skip) {
+            if (out_y != 0) {
                 // handle y-axis motion
                 if (out_y < 0)
                     quad_my_state--;
@@ -176,9 +187,6 @@ void amiga_quad_mouse_motion()
 
             if (out_y < 0) out_y++;
             if (out_y > 0) out_y--;
-
-            //if (motion_x_skip && motion_y_skip)
-            //    continue;
 
             sleep_us(300); // delay before next iteration to prevent missing state change
         }
