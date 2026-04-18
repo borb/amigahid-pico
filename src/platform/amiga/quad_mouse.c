@@ -20,11 +20,23 @@
 #include "hardware/gpio.h"
 
 // mouse motion values, used between core0 and core1
-volatile int8_t x = 0, y = 0;
-volatile bool motion_flag = false;
+volatile int16_t x = 0, y = 0;
 volatile uint8_t motion_divider = 2;
 
 enum _mouse_pin_state { LOW, HIGH };
+
+static inline int16_t _aqm_accumulate_motion(volatile int16_t *axis, int16_t delta)
+{
+    int32_t sum = *axis + delta;
+
+    if (sum > INT16_MAX)
+        sum = INT16_MAX;
+    else if (sum < INT16_MIN)
+        sum = INT16_MIN;
+
+    *axis = (int16_t)sum;
+    return *axis;
+}
 
 static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
 {
@@ -36,6 +48,17 @@ static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
 
     // assume it's high otherwise
     gpio_set_dir(gpio, GPIO_IN);
+}
+
+static inline void _aqm_quad_step(uint gpio, uint gpio_q, uint8_t *state, int16_t motion)
+{
+    *state = (*state + (motion < 0 ? 3 : 1)) & 3;
+
+    // Set both levels for the destination state. Updating only the pin that
+    // changes during forward motion loses the first step after a reversal.
+    // States (main, quadrature): 0 = 10, 1 = 11, 2 = 01, 3 = 00.
+    _aqm_gpio_set(gpio, *state < 2 ? HIGH : LOW);
+    _aqm_gpio_set(gpio_q, (*state == 1 || *state == 2) ? HIGH : LOW);
 }
 
 void amiga_quad_mouse_init()
@@ -87,21 +110,20 @@ void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
     }
 }
 
-void amiga_quad_mouse_set_motion(int8_t in_x, int8_t in_y)
+void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y)
 {
-    x = in_x;
-    y = in_y;
-    motion_flag = true;
-
-    // @todo use fifo write here to unblock core1 thread?
+    _aqm_accumulate_motion(&x, in_x);
+    _aqm_accumulate_motion(&y, in_y);
 }
 
 void amiga_quad_mouse_motion()
 {
     // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
-    int8_t out_x, out_y;
-    uint8_t quad_mx_state = 0, quad_my_state = 0;
-    bool motion_x_skip = false, motion_y_skip = false;
+    int16_t out_x, out_y;
+    int16_t in_x, in_y;
+    int16_t x_residue = 0, y_residue = 0;
+    uint8_t quad_mx_state = 1, quad_my_state = 1;
+    uint8_t divider;
 
     /**
      * a little note about quadrature motion state.
@@ -116,69 +138,34 @@ void amiga_quad_mouse_motion()
      */
 
     while (1) {
-        // @todo use blocking fifo read here to prevent wasting cycles?
-        out_x = x;
-        out_y = y;
+        // Batch new deltas so slow axis-only motion is not lost when we divide
+        // high-DPI mouse movement down to Amiga quadrature steps.
+        in_x = x;
+        in_y = y;
         x = y = 0;
-        motion_flag = false;
+        divider = motion_divider ? motion_divider : 1;
 
-        while (((out_x != 0) || (out_y != 0)) && !motion_flag) {
-            motion_x_skip = false;
-            motion_y_skip = false;
+        x_residue += in_x;
+        y_residue += in_y;
+        out_x = x_residue / divider;
+        out_y = y_residue / divider;
+        // Retain sub-step motion for the next report, but do not add the
+        // already-consumed whole steps again on the next loop iteration.
+        x_residue %= divider;
+        y_residue %= divider;
 
-            if ((out_x % motion_divider) != 0)
-                motion_x_skip = true;
-            if ((out_y % motion_divider) != 0)
-                motion_y_skip = true;
-
-            if ((out_x != 0) && !motion_x_skip) {
-                // handle x-axis motion
-                if (out_x < 0)
-                    quad_mx_state--;
-                else if (out_x > 0)
-                    quad_mx_state++;
-                // fix wraparound
-                if (quad_mx_state == 255)
-                    quad_mx_state = 3;
-                else if (quad_mx_state == 4)
-                    quad_mx_state = 0;
-
-                switch (quad_mx_state) {
-                    case 0: _aqm_gpio_set(QM1_AMIGA_H, HIGH); break;
-                    case 1: _aqm_gpio_set(QM1_AMIGA_HQ, HIGH); break;
-                    case 2: _aqm_gpio_set(QM1_AMIGA_H, LOW); break;
-                    case 3: _aqm_gpio_set(QM1_AMIGA_HQ, LOW); break;
-                }
-            }
+        while ((out_x != 0) || (out_y != 0)) {
+            if (out_x != 0)
+                _aqm_quad_step(QM1_AMIGA_H, QM1_AMIGA_HQ, &quad_mx_state, out_x);
 
             if (out_x < 0) out_x++;
             if (out_x > 0) out_x--;
 
-            if ((out_y != 0) && !motion_y_skip) {
-                // handle y-axis motion
-                if (out_y < 0)
-                    quad_my_state--;
-                else if (out_y > 0)
-                    quad_my_state++;
-                // fix wraparound
-                if (quad_my_state == 255)
-                    quad_my_state = 3;
-                else if (quad_my_state == 4)
-                    quad_my_state = 0;
-
-                switch (quad_my_state) {
-                    case 0: _aqm_gpio_set(QM1_AMIGA_V, HIGH); break;
-                    case 1: _aqm_gpio_set(QM1_AMIGA_VQ, HIGH); break;
-                    case 2: _aqm_gpio_set(QM1_AMIGA_V, LOW); break;
-                    case 3: _aqm_gpio_set(QM1_AMIGA_VQ, LOW); break;
-                }
-            }
+            if (out_y != 0)
+                _aqm_quad_step(QM1_AMIGA_V, QM1_AMIGA_VQ, &quad_my_state, out_y);
 
             if (out_y < 0) out_y++;
             if (out_y > 0) out_y--;
-
-            //if (motion_x_skip && motion_y_skip)
-            //    continue;
 
             sleep_us(300); // delay before next iteration to prevent missing state change
         }
