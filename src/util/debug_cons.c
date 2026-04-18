@@ -35,7 +35,9 @@ void dbgcons_init()
 
     dbgcons_print_counters();
     disp_write(0, 2, "hid --");
+#ifdef DEBUG_MOUSE
     disp_write(0, 3, "mouse --");
+#endif
 }
 
 void dbgcons_print_counters()
@@ -106,6 +108,7 @@ void dbgcons_unplug(enum debug_plug_types devtype)
 
 void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
 {
+#ifdef DEBUG_KEYBOARD
     char linebuf[32] = "";
 
     ahprintf(
@@ -122,6 +125,11 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
     );
 
     disp_write(0, 1, linebuf);
+#else
+    (void)incode;
+    (void)outcode;
+    (void)updown;
+#endif
 }
 
 void dbgcons_amiga_mod(uint8_t outcode, char updown)
@@ -169,6 +177,7 @@ void dbgcons_hid_status(uint8_t dev_addr, uint8_t instance, uint8_t hid_protocol
 
 void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
 {
+#ifdef DEBUG_MOUSE
     char linebuf[32] = "";
 
     snprintf(
@@ -190,4 +199,9 @@ void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
     );
 
     disp_write(0, 3, linebuf);
+#else
+    (void)x;
+    (void)y;
+    (void)buttons;
+#endif
 }

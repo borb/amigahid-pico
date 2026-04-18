@@ -29,6 +29,18 @@ add_compile_options(-Wall -Werror)
 # uncomment for debug slurry
 add_compile_definitions(DEBUG_MESSAGES=1)
 
+# enable per-report mouse debug only when explicitly requested
+option(DEBUG_MOUSE "Enable per-report mouse debug output" OFF)
+if (DEBUG_MOUSE)
+	add_compile_definitions(DEBUG_MOUSE=1)
+endif ()
+
+# enable per-key keyboard debug only when explicitly requested
+option(DEBUG_KEYBOARD "Enable per-key keyboard debug output" OFF)
+if (DEBUG_KEYBOARD)
+	add_compile_definitions(DEBUG_KEYBOARD=1)
+endif ()
+
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_definitions(${BOARD_TYPE})
 
