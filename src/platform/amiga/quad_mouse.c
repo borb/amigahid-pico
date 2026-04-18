@@ -17,25 +17,32 @@
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
+#include "pico/util/queue.h"
 #include "hardware/gpio.h"
 
-// mouse motion values, used between core0 and core1
-volatile int16_t x = 0, y = 0;
+#define AQM_MOTION_QUEUE_DEPTH 32
+
+typedef struct
+{
+    int16_t x;
+    int16_t y;
+} aqm_motion_t;
+
+static queue_t motion_queue;
 volatile uint8_t motion_divider = 2;
 
 enum _mouse_pin_state { LOW, HIGH };
 
-static inline int16_t _aqm_accumulate_motion(volatile int16_t *axis, int16_t delta)
+static inline int16_t _aqm_add_clamped(int16_t value, int16_t delta)
 {
-    int32_t sum = *axis + delta;
+    int32_t sum = value + delta;
 
     if (sum > INT16_MAX)
         sum = INT16_MAX;
     else if (sum < INT16_MIN)
         sum = INT16_MIN;
 
-    *axis = (int16_t)sum;
-    return *axis;
+    return (int16_t)sum;
 }
 
 static inline void _aqm_gpio_set(uint gpio, enum _mouse_pin_state state)
@@ -89,6 +96,8 @@ void amiga_quad_mouse_init()
     _aqm_gpio_set(QM1_AMIGA_B2, HIGH);
     _aqm_gpio_set(QM1_AMIGA_B3, HIGH);
 
+    queue_init(&motion_queue, sizeof(aqm_motion_t), AQM_MOTION_QUEUE_DEPTH);
+
     // start the mouse motion loop on core1
     multicore_launch_core1(amiga_quad_mouse_motion);
 }
@@ -112,15 +121,29 @@ void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
 
 void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y)
 {
-    _aqm_accumulate_motion(&x, in_x);
-    _aqm_accumulate_motion(&y, in_y);
+    aqm_motion_t motion = { in_x, in_y };
+
+    if (!queue_try_add(&motion_queue, &motion)) {
+        aqm_motion_t oldest;
+
+        // Coalesce the oldest sample with the new delta on overflow. The
+        // consumer sums all queued samples before its next output step.
+        if (queue_try_remove(&motion_queue, &oldest)) {
+            motion.x = _aqm_add_clamped(oldest.x, in_x);
+            motion.y = _aqm_add_clamped(oldest.y, in_y);
+        }
+
+        // Core 0 is the only producer: either we freed a slot above, or core 1
+        // emptied the queue before our remove. In either case this add fits.
+        queue_try_add(&motion_queue, &motion);
+    }
 }
 
 void amiga_quad_mouse_motion()
 {
     // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
-    int16_t out_x, out_y;
-    int16_t in_x, in_y;
+    aqm_motion_t motion;
+    int16_t out_x = 0, out_y = 0;
     int16_t x_residue = 0, y_residue = 0;
     uint8_t quad_mx_state = 1, quad_my_state = 1;
     uint8_t divider;
@@ -138,36 +161,41 @@ void amiga_quad_mouse_motion()
      */
 
     while (1) {
-        // Batch new deltas so slow axis-only motion is not lost when we divide
-        // high-DPI mouse movement down to Amiga quadrature steps.
-        in_x = x;
-        in_y = y;
-        x = y = 0;
+        // Merge newly queued USB deltas between quadrature steps so we do not
+        // lose motion across cores or wait for an entire stale batch to drain.
         divider = motion_divider ? motion_divider : 1;
 
-        x_residue += in_x;
-        y_residue += in_y;
-        out_x = x_residue / divider;
-        out_y = y_residue / divider;
+        while (queue_try_remove(&motion_queue, &motion)) {
+            x_residue = _aqm_add_clamped(x_residue, motion.x);
+            y_residue = _aqm_add_clamped(y_residue, motion.y);
+        }
+
+        // Opposite deltas cancel pending steps, preserving net displacement.
+        // A large backlog can therefore delay a physical direction change.
+        out_x = _aqm_add_clamped(out_x, x_residue / divider);
+        out_y = _aqm_add_clamped(out_y, y_residue / divider);
         // Retain sub-step motion for the next report, but do not add the
         // already-consumed whole steps again on the next loop iteration.
         x_residue %= divider;
         y_residue %= divider;
 
-        while ((out_x != 0) || (out_y != 0)) {
-            if (out_x != 0)
-                _aqm_quad_step(QM1_AMIGA_H, QM1_AMIGA_HQ, &quad_mx_state, out_x);
-
-            if (out_x < 0) out_x++;
-            if (out_x > 0) out_x--;
-
-            if (out_y != 0)
-                _aqm_quad_step(QM1_AMIGA_V, QM1_AMIGA_VQ, &quad_my_state, out_y);
-
-            if (out_y < 0) out_y++;
-            if (out_y > 0) out_y--;
-
-            sleep_us(300); // delay before next iteration to prevent missing state change
+        if ((out_x == 0) && (out_y == 0)) {
+            tight_loop_contents();
+            continue;
         }
+
+        if (out_x != 0)
+            _aqm_quad_step(QM1_AMIGA_H, QM1_AMIGA_HQ, &quad_mx_state, out_x);
+
+        if (out_x < 0) out_x++;
+        if (out_x > 0) out_x--;
+
+        if (out_y != 0)
+            _aqm_quad_step(QM1_AMIGA_V, QM1_AMIGA_VQ, &quad_my_state, out_y);
+
+        if (out_y < 0) out_y++;
+        if (out_y > 0) out_y--;
+
+        sleep_us(300); // delay before next iteration to prevent missing state change
     }
 }
