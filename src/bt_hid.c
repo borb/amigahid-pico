@@ -11,6 +11,7 @@
 #include "bt_hid.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -21,6 +22,7 @@
 #include "hardware/sync.h"
 
 #include "input_bridge_bt.h"
+#include "util/debug_cons.h"
 #include "util/output.h"
 
 #define BT_HID_QUEUE_DEPTH 64
@@ -121,6 +123,75 @@ static gatt_client_notification_t bt_le_mouse_notifications;
 static bool bt_le_has_protocol_mode;
 static bool bt_le_has_boot_keyboard;
 static bool bt_le_has_boot_mouse;
+
+static uint8_t bt_classic_connected_count(void)
+{
+    uint8_t count = 0;
+
+    for (uint8_t slot = 0; slot < INPUT_BRIDGE_BT_CLASSIC_SLOTS; slot++) {
+        if (bt_classic_connections[slot].in_use)
+            count++;
+    }
+
+    return count;
+}
+
+static char const *bt_le_state_name(bt_le_state_t state)
+{
+    switch (state) {
+        case BT_LE_STATE_OFF:
+            return "off";
+
+        case BT_LE_STATE_SCANNING:
+            return "scan";
+
+        case BT_LE_STATE_CONNECTING:
+            return "conn";
+
+        case BT_LE_STATE_ENCRYPTING:
+            return "pair";
+
+        case BT_LE_STATE_SERVICE_QUERY:
+            return "svc";
+
+        case BT_LE_STATE_CHARACTERISTIC_QUERY:
+            return "char";
+
+        case BT_LE_STATE_ENABLE_KEYBOARD:
+            return "kbd";
+
+        case BT_LE_STATE_ENABLE_MOUSE:
+            return "mouse";
+
+        case BT_LE_STATE_READY:
+            return "ready";
+    }
+
+    return "?";
+}
+
+static void bt_hid_update_status(void)
+{
+    char linebuf[32] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "bt c%u le:%s",
+        bt_classic_connected_count(), bt_le_state_name(bt_le_state));
+    dbgcons_bt_status(linebuf);
+}
+
+static void bt_le_set_state(bt_le_state_t state)
+{
+    bt_le_state = state;
+    bt_hid_update_status();
+}
+
+static void bt_hid_show_passkey(char const *label, uint32_t passkey)
+{
+    char linebuf[32] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "bt %s %06lu", label, (unsigned long)passkey);
+    dbgcons_bt_passkey(linebuf);
+}
 
 static inline uint8_t bt_classic_input_slot(uint8_t classic_slot)
 {
@@ -286,6 +357,7 @@ static void bt_classic_disconnect_slot(uint8_t slot)
 
     bt_hid_enqueue_disconnect(bt_classic_input_slot(slot));
     memset(&bt_classic_connections[slot], 0, sizeof(bt_classic_connections[slot]));
+    bt_hid_update_status();
 }
 
 static void bt_classic_parse_report(uint8_t slot, uint8_t const *report, uint16_t report_len)
@@ -394,6 +466,7 @@ static void bt_classic_packet_handler(uint8_t packet_type, uint16_t channel, uin
             bd_addr_t event_addr;
 
             hci_event_pin_code_request_get_bd_addr(packet, event_addr);
+            dbgcons_bt_passkey("bt pin 0000");
             gap_pin_code_response(event_addr, "0000");
             break;
         }
@@ -402,6 +475,8 @@ static void bt_classic_packet_handler(uint8_t packet_type, uint16_t channel, uin
             bd_addr_t event_addr;
 
             hci_event_user_confirmation_request_get_bd_addr(packet, event_addr);
+            bt_hid_show_passkey("conf",
+                hci_event_user_confirmation_request_get_numeric_value(packet));
             gap_ssp_confirmation_response(event_addr);
             break;
         }
@@ -424,6 +499,7 @@ static void bt_classic_packet_handler(uint8_t packet_type, uint16_t channel, uin
 
                     if (status != ERROR_CODE_SUCCESS) {
                         ahprintf("[bt] classic hid connect failed: 0x%02x\n", status);
+                        dbgcons_bt_passkey_clear();
                         break;
                     }
 
@@ -436,6 +512,8 @@ static void bt_classic_packet_handler(uint8_t packet_type, uint16_t channel, uin
                     bt_classic_connections[slot].in_use = true;
                     bt_classic_connections[slot].hid_cid = hid_cid;
                     bt_classic_connections[slot].protocol_mode = HID_PROTOCOL_MODE_REPORT;
+                    dbgcons_bt_passkey_clear();
+                    bt_hid_update_status();
                     break;
                 }
 
@@ -461,6 +539,8 @@ static void bt_classic_packet_handler(uint8_t packet_type, uint16_t channel, uin
 
                 case HID_SUBEVENT_CONNECTION_CLOSED: {
                     int8_t slot = bt_classic_find_slot(hid_subevent_connection_closed_get_hid_cid(packet));
+
+                    dbgcons_bt_passkey_clear();
 
                     if (slot >= 0)
                         bt_classic_disconnect_slot((uint8_t)slot);
@@ -504,7 +584,8 @@ static void bt_le_start_scan(void)
         return;
 
     bt_le_clear_characteristics();
-    bt_le_state = BT_LE_STATE_SCANNING;
+    dbgcons_bt_passkey_clear();
+    bt_le_set_state(BT_LE_STATE_SCANNING);
     gap_set_scan_parameters(0, 48, 48);
     gap_start_scan();
 }
@@ -512,7 +593,8 @@ static void bt_le_start_scan(void)
 static void bt_le_restart_scan(void)
 {
     bt_le_connection_handle = HCI_CON_HANDLE_INVALID;
-    bt_le_state = BT_LE_STATE_OFF;
+    dbgcons_bt_passkey_clear();
+    bt_le_set_state(BT_LE_STATE_OFF);
     bt_le_start_scan();
 }
 
@@ -533,7 +615,8 @@ static void bt_le_ready(void)
             bt_le_protocol_mode_characteristic.value_handle, 1, &boot_protocol_mode);
     }
 
-    bt_le_state = BT_LE_STATE_READY;
+    dbgcons_bt_passkey_clear();
+    bt_le_set_state(BT_LE_STATE_READY);
 }
 
 static void bt_le_keyboard_notification_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
@@ -604,7 +687,7 @@ static void bt_le_gatt_client_handler(uint8_t packet_type, uint16_t channel, uin
                         break;
                     }
 
-                    bt_le_state = BT_LE_STATE_CHARACTERISTIC_QUERY;
+                    bt_le_set_state(BT_LE_STATE_CHARACTERISTIC_QUERY);
                     gatt_client_discover_characteristics_for_service(&bt_le_gatt_client_handler,
                         bt_le_connection_handle, &bt_le_hid_service);
                     break;
@@ -647,12 +730,12 @@ static void bt_le_gatt_client_handler(uint8_t packet_type, uint16_t channel, uin
                     }
 
                     if (bt_le_has_boot_keyboard) {
-                        bt_le_state = BT_LE_STATE_ENABLE_KEYBOARD;
+                        bt_le_set_state(BT_LE_STATE_ENABLE_KEYBOARD);
                         gatt_client_write_client_characteristic_configuration(&bt_le_gatt_client_handler,
                             bt_le_connection_handle, &bt_le_boot_keyboard_characteristic,
                             GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION);
                     } else if (bt_le_has_boot_mouse) {
-                        bt_le_state = BT_LE_STATE_ENABLE_MOUSE;
+                        bt_le_set_state(BT_LE_STATE_ENABLE_MOUSE);
                         gatt_client_write_client_characteristic_configuration(&bt_le_gatt_client_handler,
                             bt_le_connection_handle, &bt_le_boot_mouse_characteristic,
                             GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION);
@@ -679,7 +762,7 @@ static void bt_le_gatt_client_handler(uint8_t packet_type, uint16_t channel, uin
                 &bt_le_keyboard_notification_handler, bt_le_connection_handle, &bt_le_boot_keyboard_characteristic);
 
             if (bt_le_has_boot_mouse) {
-                bt_le_state = BT_LE_STATE_ENABLE_MOUSE;
+                bt_le_set_state(BT_LE_STATE_ENABLE_MOUSE);
                 gatt_client_write_client_characteristic_configuration(&bt_le_gatt_client_handler,
                     bt_le_connection_handle, &bt_le_boot_mouse_characteristic,
                     GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION);
@@ -730,7 +813,7 @@ static void bt_le_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t 
             gap_stop_scan();
             gap_event_advertising_report_get_address(packet, bt_le_addr);
             bt_le_addr_type = gap_event_advertising_report_get_address_type(packet);
-            bt_le_state = BT_LE_STATE_CONNECTING;
+            bt_le_set_state(BT_LE_STATE_CONNECTING);
             gap_connect(bt_le_addr, bt_le_addr_type);
             break;
 
@@ -747,7 +830,7 @@ static void bt_le_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t 
             }
 
             bt_le_connection_handle = gap_subevent_le_connection_complete_get_connection_handle(packet);
-            bt_le_state = BT_LE_STATE_ENCRYPTING;
+            bt_le_set_state(BT_LE_STATE_ENCRYPTING);
             sm_request_pairing(bt_le_connection_handle);
             break;
 
@@ -782,11 +865,15 @@ static void bt_le_sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8
 
         case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
             ahprintf("[btle] confirm %lu\n", (unsigned long)sm_event_numeric_comparison_request_get_passkey(packet));
+            bt_hid_show_passkey("conf",
+                sm_event_numeric_comparison_request_get_passkey(packet));
             sm_numeric_comparison_confirm(sm_event_numeric_comparison_request_get_handle(packet));
             break;
 
         case SM_EVENT_PASSKEY_DISPLAY_NUMBER:
             ahprintf("[btle] passkey %lu\n", (unsigned long)sm_event_passkey_display_number_get_passkey(packet));
+            bt_hid_show_passkey("key",
+                sm_event_passkey_display_number_get_passkey(packet));
             break;
 
         case SM_EVENT_PAIRING_COMPLETE:
@@ -807,7 +894,7 @@ static void bt_le_sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8
     if (!connect_to_service || (bt_le_connection_handle == HCI_CON_HANDLE_INVALID))
         return;
 
-    bt_le_state = BT_LE_STATE_SERVICE_QUERY;
+    bt_le_set_state(BT_LE_STATE_SERVICE_QUERY);
     gatt_client_discover_primary_services_by_uuid16(&bt_le_gatt_client_handler, bt_le_connection_handle,
         ORG_BLUETOOTH_SERVICE_HUMAN_INTERFACE_DEVICE);
 }
@@ -817,16 +904,23 @@ void bt_hid_init(void)
     if (bt_hid_ready)
         return;
 
+    dbgcons_bt_status("bt init");
+
     for (uint8_t slot = INPUT_BRIDGE_BT_CLASSIC_SLOT_BASE; slot < INPUT_BRIDGE_MAX_SLOTS; slot++)
         input_bridge_reset(slot);
 
     queue_init(&bt_hid_queue, sizeof(bt_hid_queue_entry_t), BT_HID_QUEUE_DEPTH);
 
+    dbgcons_bt_status("bt cyw43");
+    ahprintf("[bt] initializing CYW43 and pairing storage\n");
     if (cyw43_arch_init()) {
         ahprintf("[bt] cyw43 init failed\n");
+        dbgcons_bt_status("bt init fail");
         return;
     }
 
+    dbgcons_bt_status("bt stack");
+    ahprintf("[bt] initializing HID stack\n");
     l2cap_init();
     sm_init();
     // Preserve pairing with older HID devices after the BTstack default changes.
@@ -858,7 +952,10 @@ void bt_hid_init(void)
     bt_le_clear_characteristics();
     bt_hid_ready = true;
 
+    dbgcons_bt_status("bt power");
+    ahprintf("[bt] powering Bluetooth controller\n");
     hci_power_control(HCI_POWER_ON);
+    ahprintf("[bt] controller startup requested\n");
 }
 
 void bt_hid_task(void)

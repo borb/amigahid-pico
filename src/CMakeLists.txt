@@ -4,6 +4,19 @@ add_executable(amigahid-pico
   usb_hid.c
 )
 
+# Refresh the commit ID even when an incremental build does not rerun CMake.
+# The script leaves the header untouched when its contents have not changed.
+add_custom_target(firmware_version
+  COMMAND "${CMAKE_COMMAND}"
+    "-DAMIGAHID_SOURCE_DIR=${CMAKE_SOURCE_DIR}"
+    "-DAMIGAHID_VERSION_HEADER=${CMAKE_CURRENT_BINARY_DIR}/generated/firmware_version.h"
+    -P "${CMAKE_SOURCE_DIR}/cmake/firmware_version.cmake"
+  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/generated/firmware_version.h"
+  VERBATIM
+)
+add_dependencies(amigahid-pico firmware_version)
+target_include_directories(amigahid-pico PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 if (ENABLE_BLUETOOTH_HID)
   target_sources(amigahid-pico PRIVATE
     bt_hid.c
