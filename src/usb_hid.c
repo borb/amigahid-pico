@@ -19,50 +19,83 @@
 // other includes
 #include <stdint.h>
 
+#include "input_bridge.h"
 #include "tusb_config.h"
-#include "platform/amiga/keyboard_serial_io.h"  // amiga only, for now, until i get hold of an ST :D
-#include "platform/amiga/keyboard.h"
-#include "platform/amiga/quad_mouse.h"
 #include "util/output.h"
 #include "util/debug_cons.h"
 
 // maximum number of reports per hid device
 #define MAX_REPORT 4
 
-// repetitive modifier check macros (@todo probably better iterated in future?)
-#define _SINGLE_MOD_CHECK(hid_mod) \
-    if ((report->modifier & hid_mod) && !(last_report.modifier & hid_mod)) \
-        amiga_hid_modifier(hid_mod, false); \
-    if (!(report->modifier & hid_mod) && (last_report.modifier & hid_mod)) \
-        amiga_hid_modifier(hid_mod, true);
-
-#define _MULTI_MOD_CHECK(hid_mod_a, hid_mod_b) \
-    if (((report->modifier & hid_mod_a) && !(last_report.modifier & hid_mod_a)) \
-        || ((report->modifier & hid_mod_b) && !(last_report.modifier & hid_mod_b)) \
-    ) \
-        amiga_hid_modifier(hid_mod_a, false); \
-    if ((!(report->modifier & hid_mod_a) && (last_report.modifier & hid_mod_a)) \
-        || (!(report->modifier & hid_mod_b) && (last_report.modifier & hid_mod_b)) \
-    ) \
-        amiga_hid_modifier(hid_mod_a, true);
-
 // textual representations of attached devices
 const uint8_t hid_protocol_type[] = { AP_H_UNKNOWN, AP_H_KEYBOARD, AP_H_MOUSE };
 
-// hid information structure
-static struct _hid_info
+typedef struct
 {
+    bool mounted;
+    uint8_t dev_addr;
+    uint8_t instance;
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
-} hid_info[CFG_TUH_HID];
+} usb_hid_slot_t;
 
-static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
-static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report);
-static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
+typedef struct
+{
+    uint8_t dev_addr;
+    uint8_t instance;
+} usb_keyboard_led_ctx_t;
+
+static usb_hid_slot_t hid_info[CFG_TUH_HID];
+
+static int8_t usb_hid_find_slot(uint8_t dev_addr, uint8_t instance);
+static int8_t usb_hid_allocate_slot(uint8_t dev_addr, uint8_t instance);
+static void usb_hid_set_keyboard_leds(void *ctx, uint8_t led_report);
+static void process_report(uint8_t slot, uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len);
+static void handle_event_keyboard(uint8_t slot, uint8_t dev_addr, uint8_t instance,
+    hid_keyboard_report_t const *report);
+static void handle_event_mouse(uint8_t slot, hid_mouse_report_t const *report);
 
 void hid_app_task(void)
 {
     // null function to satisfy stack
+}
+
+static int8_t usb_hid_find_slot(uint8_t dev_addr, uint8_t instance)
+{
+    for (uint8_t slot = 0; slot < CFG_TUH_HID; slot++) {
+        if (hid_info[slot].mounted && (hid_info[slot].dev_addr == dev_addr) && (hid_info[slot].instance == instance))
+            return (int8_t)slot;
+    }
+
+    return -1;
+}
+
+static int8_t usb_hid_allocate_slot(uint8_t dev_addr, uint8_t instance)
+{
+    int8_t slot = usb_hid_find_slot(dev_addr, instance);
+
+    if (slot >= 0)
+        return slot;
+
+    for (uint8_t i = 0; i < CFG_TUH_HID; i++) {
+        if (!hid_info[i].mounted) {
+            hid_info[i].mounted = true;
+            hid_info[i].dev_addr = dev_addr;
+            hid_info[i].instance = instance;
+            hid_info[i].report_count = 0;
+            input_bridge_reset(i);
+            return (int8_t)i;
+        }
+    }
+
+    return -1;
+}
+
+static void usb_hid_set_keyboard_leds(void *ctx, uint8_t led_report)
+{
+    usb_keyboard_led_ctx_t *led_ctx = (usb_keyboard_led_ctx_t *)ctx;
+
+    tuh_hid_set_report(led_ctx->dev_addr, led_ctx->instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
 }
 
 // callback functions; methods below suffixed with "_cb" are called by tinyusb
@@ -79,22 +112,25 @@ void hid_app_task(void)
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    int8_t slot = usb_hid_allocate_slot(dev_addr, instance);
     bool receive_ok;
 
-    hid_info[instance].report_count = 0;
     dbgcons_plug(hid_protocol_type[hid_protocol]);
+
+    if (slot < 0)
+        return;
 
     // this part doesn't entirely make sense to me; hid devices come in two modes, boot protocol and report;
     // as i understand it, boot proto is intended for simplistic software such as bios which don't want to
     // implement a full stack. so if we're not in boot proto mode, display... something?
     // this might be number of interfaces on a device (think wireless kbd+mouse receiver). maybe. speculation.
     if (hid_protocol == HID_ITF_PROTOCOL_NONE) {
-        hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
+        hid_info[slot].report_count = tuh_hid_parse_report_descriptor(hid_info[slot].report_info, MAX_REPORT, desc_report, desc_len);
         // ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
     }
 
     receive_ok = tuh_hid_receive_report(dev_addr, instance);
-    dbgcons_hid_status(dev_addr, instance, hid_protocol, receive_ok, hid_info[instance].report_count, true);
+    dbgcons_hid_status(dev_addr, instance, hid_protocol, receive_ok, hid_info[slot].report_count, true);
 
     if (!receive_ok) {
         // ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
@@ -110,10 +146,16 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    int8_t slot = usb_hid_find_slot(dev_addr, instance);
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
-    dbgcons_hid_status(dev_addr, instance, hid_protocol, true, hid_info[instance].report_count, false);
-    hid_info[instance].report_count = 0;
+    dbgcons_hid_status(dev_addr, instance, hid_protocol, true, slot >= 0 ? hid_info[slot].report_count : 0, false);
+
+    if (slot >= 0) {
+        input_bridge_disconnect((uint8_t)slot);
+        hid_info[slot].mounted = false;
+        hid_info[slot].report_count = 0;
+    }
 }
 
 /**
@@ -127,20 +169,26 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
 {
     uint8_t const hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    int8_t slot = usb_hid_find_slot(dev_addr, instance);
+
+    if (slot < 0) {
+        tuh_hid_receive_report(dev_addr, instance);
+        return;
+    }
 
     switch (hid_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:
-            handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *)report);
+            handle_event_keyboard((uint8_t)slot, dev_addr, instance, (hid_keyboard_report_t const *)report);
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
-            handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *)report);
+            handle_event_mouse((uint8_t)slot, (hid_mouse_report_t const *)report);
             break;
 
         default:
             // if report was not immediately identifiable as a keyboard event, read the usage page;
             // some reports have a classifier as "desktop" for media keys, power, or are just encapsulated.
-            process_report(dev_addr, instance, report, len);
+            process_report((uint8_t)slot, dev_addr, instance, report, len);
             break;
     }
 
@@ -158,27 +206,19 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
  * @return true     Key is currently pressed
  * @return false    Key is not currently pressed
  */
-static inline bool key_pressed(hid_keyboard_report_t const *report, uint8_t keycode)
-{
-    for (uint8_t pos = 0; pos < 6; pos++)
-        if (report->keycode[pos] == keycode)
-            return true;
-
-    return false;
-}
-
 /**
  * Process incoming event and pass off to device-centric handler.
  *
+ * @param slot      Source slot for this reporting device
  * @param dev_addr  Address of reporting device
  * @param instance  Instance of reporting device
  * @param report    Address of the report data structure
  * @param len       Size of the report event
  */
-static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
+static void process_report(uint8_t slot, uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
 {
-    uint8_t const report_count = hid_info[instance].report_count;
-    tuh_hid_report_info_t *report_info_arr = hid_info[instance].report_info;
+    uint8_t const report_count = hid_info[slot].report_count;
+    tuh_hid_report_info_t *report_info_arr = hid_info[slot].report_info;
     tuh_hid_report_info_t *report_info = NULL;
 
     if (report_count == 1 && report_info_arr[0].report_id == 0) {
@@ -212,12 +252,12 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
         switch (report_info->usage) {
             case HID_USAGE_DESKTOP_KEYBOARD:
                 // keyboard event; let's hope it appears as a boot proto event or else this will break
-                handle_event_keyboard(dev_addr, instance, (hid_keyboard_report_t const *) report);
+                handle_event_keyboard(slot, dev_addr, instance, (hid_keyboard_report_t const *)report);
                 break;
 
             case HID_USAGE_DESKTOP_MOUSE:
                 // mouse event
-                handle_event_mouse(dev_addr, instance, (hid_mouse_report_t const *) report);
+                handle_event_mouse(slot, (hid_mouse_report_t const *)report);
                 break;
 
             default:
@@ -233,96 +273,24 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
  * @param instance  Instance number of reporting device
  * @param report    Address of hid_mouse_report_t structure of current mouse event
  */
-static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report)
+static void handle_event_mouse(uint8_t slot, hid_mouse_report_t const *report)
 {
-    static hid_mouse_report_t last_report = { 0 };
-
-    if (report == NULL) {
-        // ahprintf("[hid] report was null, aborting mouse event\n");
-        return;
-    }
-
-    // have buttons changed since the last report?
-    if ((report->buttons & MOUSE_BUTTON_LEFT) && !(last_report.buttons & MOUSE_BUTTON_LEFT))
-        amiga_quad_mouse_button(AQM_LEFT, true);
-    if (!(report->buttons & MOUSE_BUTTON_LEFT) && (last_report.buttons & MOUSE_BUTTON_LEFT))
-        amiga_quad_mouse_button(AQM_LEFT, false);
-
-    if ((report->buttons & MOUSE_BUTTON_MIDDLE) && !(last_report.buttons & MOUSE_BUTTON_MIDDLE))
-        amiga_quad_mouse_button(AQM_MIDDLE, true);
-    if (!(report->buttons & MOUSE_BUTTON_MIDDLE) && (last_report.buttons & MOUSE_BUTTON_MIDDLE))
-        amiga_quad_mouse_button(AQM_MIDDLE, false);
-
-    if ((report->buttons & MOUSE_BUTTON_RIGHT) && !(last_report.buttons & MOUSE_BUTTON_RIGHT))
-        amiga_quad_mouse_button(AQM_RIGHT, true);
-    if (!(report->buttons & MOUSE_BUTTON_RIGHT) && (last_report.buttons & MOUSE_BUTTON_RIGHT))
-        amiga_quad_mouse_button(AQM_RIGHT, false);
-
-    // this would spam horrendously, so even when debug messages are on, this is probably... too much.
-    // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
-    dbgcons_mouse_report(report->x, report->y, report->buttons);
-
-    if (report->x || report->y)
-        amiga_quad_mouse_set_motion(report->x, report->y);
-
-    last_report = *report;
+    input_bridge_handle_mouse(slot, report);
 }
-
-static uint8_t led_report = 0;
 
 /**
  * Handle the keyboard event sent to us.
  *
+ * @param slot      Source slot for this reporting device
  * @param dev_addr  Device address of report
  * @param instance  Instance number of reporting device
  * @param report    Address of hid_keyboard_report_t structure of current keyboard event (boot proto?)
  */
-static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboard_report_t const *report)
+static void handle_event_keyboard(uint8_t slot, uint8_t dev_addr, uint8_t instance,
+    hid_keyboard_report_t const *report)
 {
-    // keep hold of older key event reports; init empty keyboard report
-    static hid_keyboard_report_t last_report = { 0, 0, {0} };
-    uint8_t pos;
+    usb_keyboard_led_ctx_t led_ctx = { dev_addr, instance };
+    input_bridge_keyboard_sink_t sink = { usb_hid_set_keyboard_leds, &led_ctx };
 
-    // check to see if a keypress is a new keypress or in the last report
-    for (pos = 0; pos < 6; pos++) {
-        if (report->keycode[pos] && !key_pressed(&last_report, report->keycode[pos])) {
-            // this is a new keypress; pass on to the amiga as a down event
-            // @todo right now, menu and right gui are both mapped to right amiga; if one is released, an ramiga up is sent
-            // probably something which can be fixed in keyboard_serial_io.c
-            amiga_hid_send(report->keycode[pos], false);
-        }
-
-        if (last_report.keycode[pos] && !key_pressed(report, last_report.keycode[pos])) {
-            // key has been released; send "up" code to amiga
-            amiga_hid_send(last_report.keycode[pos], true);
-        }
-    }
-
-    // check modifier state
-    _MULTI_MOD_CHECK(KEYBOARD_MODIFIER_LEFTCTRL, KEYBOARD_MODIFIER_RIGHTCTRL);
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTALT);
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTALT);
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTSHIFT);
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTSHIFT);
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_LEFTGUI);
-    // @todo menu key vs right gui thing; see above
-    _SINGLE_MOD_CHECK(KEYBOARD_MODIFIER_RIGHTGUI);
-
-    if (amiga_caps_lock()) {
-        if (!(led_report & KEYBOARD_LED_CAPSLOCK)) {
-            led_report |= KEYBOARD_LED_CAPSLOCK;
-
-            // ahprintf("[hid] turning caps lock led on\n");
-            tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
-        }
-    } else {
-        if (led_report & KEYBOARD_LED_CAPSLOCK) {
-            led_report &= ~KEYBOARD_LED_CAPSLOCK;
-
-            // ahprintf("[hid] turning caps lock led off\n");
-            tuh_hid_set_report(dev_addr, instance, 0, HID_REPORT_TYPE_OUTPUT, &led_report, 1);
-        }
-    }
-
-    last_report = *report;
+    input_bridge_handle_keyboard(slot, report, &sink);
 }
