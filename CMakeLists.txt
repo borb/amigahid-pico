@@ -41,6 +41,12 @@ if (DEBUG_KEYBOARD)
 	add_compile_definitions(DEBUG_KEYBOARD=1)
 endif ()
 
+# enable HID mount/status debug only when explicitly requested
+option(DEBUG_HID_STATUS "Enable HID status debug output" OFF)
+if (DEBUG_HID_STATUS)
+	add_compile_definitions(DEBUG_HID_STATUS=1)
+endif ()
+
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_definitions(${BOARD_TYPE})
 
