@@ -1,7 +1,14 @@
 add_executable(amigahid-pico
+  input_bridge.c
   main.c
   usb_hid.c
 )
+
+if (ENABLE_BLUETOOTH_HID)
+  target_sources(amigahid-pico PRIVATE
+    bt_hid.c
+  )
+endif ()
 
 add_subdirectory(platform)
 add_subdirectory(util)
@@ -16,6 +23,7 @@ pico_enable_stdio_uart(amigahid-pico 1)
 
 target_link_libraries(amigahid-pico PUBLIC
   pico_stdlib
+  pico_util
   pico_multicore
   hardware_dma
   hardware_gpio
@@ -24,6 +32,22 @@ target_link_libraries(amigahid-pico PUBLIC
   tinyusb_host
   tinyusb_board
 )
+
+if (ENABLE_BLUETOOTH_HID)
+  target_compile_options(amigahid-pico PRIVATE
+    -Wno-error=maybe-uninitialized
+  )
+  target_link_libraries(amigahid-pico PUBLIC
+    pico_cyw43_arch_none
+    pico_btstack_ble
+    pico_btstack_classic
+    pico_btstack_cyw43
+  )
+endif ()
+
+if (ENABLE_BLUETOOTH_HID AND COMMAND suppress_btstack_warnings)
+  suppress_btstack_warnings()
+endif ()
 
 add_compile_definitions(PICO_USE_MALLOC_MUTEX=0)
 

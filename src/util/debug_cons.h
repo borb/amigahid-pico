@@ -11,6 +11,7 @@
 #ifndef _PLATFORM_COMMON_DEBUG_CONS_H
 #define _PLATFORM_COMMON_DEBUG_CONS_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 enum debug_plug_types { AP_H_UNKNOWN, AP_H_KEYBOARD, AP_H_MOUSE, AP_H_CONTROLLER };
@@ -36,5 +37,15 @@ void dbgcons_plug(enum debug_plug_types devtype);
 void dbgcons_unplug(enum debug_plug_types devtype);
 
 void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown);
+
+void dbgcons_hid_status(uint8_t dev_addr, uint8_t instance, uint8_t hid_protocol, bool receive_ok, uint8_t report_count, bool mounted);
+
+void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons);
+
+void dbgcons_bt_status(char const *status);
+
+void dbgcons_bt_passkey(char const *message);
+
+void dbgcons_bt_passkey_clear(void);
 
 #endif // _PLATFORM_COMMON_DEBUG_CONS_H
