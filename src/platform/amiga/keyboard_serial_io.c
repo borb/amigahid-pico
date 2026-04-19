@@ -12,6 +12,7 @@
 #include "keyboard_serial_io.h"
 #include "keyboard.h"
 #include "keyboard.pio.h" // generated at compile time
+#include "usb_hid.h"
 #include "util/output.h"
 #include "util/debug_cons.h"
 
@@ -29,8 +30,23 @@ volatile bool clock_timer_fired = false;
 
 // caps lock will be read by the hid loop
 bool caps_lock = false;
+static bool ctrl = false;
+static bool lamiga = false;
+static bool ramiga = false;
+static bool in_reset = false;
+static bool local_reset_active = false;
+static bool external_reset_active = false;
+static bool reset_line_was_low = false;
 
 enum _keyboard_pin_state { LOW, HIGH };
+
+static inline void amiga_reset_stateful_flags(void)
+{
+    if (caps_lock) {
+        caps_lock = false;
+        usb_hid_sync_keyboard_leds();
+    }
+}
 
 // @todo this is copy-pasta from quad_mouse; move to util/io.c
 static inline void _keyboard_gpio_set(uint gpio, enum _keyboard_pin_state state)
@@ -80,12 +96,14 @@ void amiga_init()
     gpio_set_function(KBD_AMIGA_DAT, GPIO_FUNC_SIO);
     gpio_set_function(KBD_AMIGA_CLK, GPIO_FUNC_SIO);
     gpio_set_function(KBD_AMIGA_RST, GPIO_FUNC_SIO);
+    gpio_pull_up(KBD_AMIGA_RST);
 
     // all pins are active low, meaning if /rst is current at 0, the amiga is held in reset.
     // rectify this by putting all pins in open drain. this should bring the amiga to boot.
     _keyboard_gpio_set(KBD_AMIGA_DAT, HIGH);
     _keyboard_gpio_set(KBD_AMIGA_CLK, HIGH);
     _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);
+    reset_line_was_low = gpio_get(KBD_AMIGA_RST) == 0;
 
     // now the pins are setup, setup the timer callback to maintain keyboard comms in sync.
     // @todo add_alarm_in_ms() here
@@ -132,7 +150,6 @@ void amiga_hid_modifier(hid_keyboard_modifier_bm_t modifier, bool up)
 void amiga_send(uint8_t keycode, bool up)
 {
     uint8_t bit_position, bit_mask = 0x80, sendcode;
-    static bool ctrl = false, lamiga = false, ramiga = false, in_reset = false;
 
     // we don't care about caps lock coming up; ignore it
     if ((keycode == AMIGA_CAPSLOCK) && up)
@@ -156,10 +173,13 @@ void amiga_send(uint8_t keycode, bool up)
 
     if ((ctrl && lamiga && ramiga) && !in_reset) {
         in_reset = true;
+        local_reset_active = true;
+        amiga_reset_stateful_flags();
         amiga_assert_reset();
     }
 
-    if (in_reset && !(ctrl && lamiga && ramiga)) {
+    if (local_reset_active && !(ctrl && lamiga && ramiga)) {
+        local_reset_active = false;
         in_reset = false;
         amiga_release_reset();
     }
@@ -227,6 +247,26 @@ void amiga_release_reset()
 
 void amiga_service()
 {
+    bool reset_line_low = gpio_get(KBD_AMIGA_RST) == 0;
+
+    /*
+     * On A500-style hookups the reset line can be observed from the Pico
+     * side when the Amiga asserts a hard reset externally. Big-box systems
+     * generally do not wire this line, so this path is best-effort only.
+     */
+    if (!local_reset_active) {
+        if (reset_line_low && !reset_line_was_low) {
+            external_reset_active = true;
+            in_reset = true;
+            amiga_reset_stateful_flags();
+        } else if (!reset_line_low && reset_line_was_low && external_reset_active) {
+            external_reset_active = false;
+            in_reset = false;
+        }
+    }
+
+    reset_line_was_low = reset_line_low;
+
     if ((sync_state == SYNC) && clock_timer_fired) {
         // @todo THIS IS WRONG
         _keyboard_gpio_set(KBD_AMIGA_RST, HIGH);

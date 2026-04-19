@@ -20,9 +20,11 @@
 #include <stdint.h>
 
 #include "input_bridge.h"
+#include "platform/amiga/keyboard_serial_io.h"
 #include "tusb_config.h"
 #include "util/output.h"
 #include "util/debug_cons.h"
+#include "usb_hid.h"
 
 // maximum number of reports per hid device
 #define MAX_REPORT 4
@@ -58,6 +60,24 @@ static void handle_event_mouse(uint8_t slot, hid_mouse_report_t const *report);
 void hid_app_task(void)
 {
     // null function to satisfy stack
+}
+
+void usb_hid_sync_keyboard_leds(void)
+{
+    uint8_t led_report = amiga_caps_lock() ? KEYBOARD_LED_CAPSLOCK : 0;
+
+    for (uint8_t slot = 0; slot < CFG_TUH_HID; slot++) {
+        if (!hid_info[slot].mounted)
+            continue;
+
+        if (tuh_hid_interface_protocol(hid_info[slot].dev_addr, hid_info[slot].instance) !=
+            HID_ITF_PROTOCOL_KEYBOARD) {
+            continue;
+        }
+
+        tuh_hid_set_report(hid_info[slot].dev_addr, hid_info[slot].instance, 0,
+            HID_REPORT_TYPE_OUTPUT, &led_report, 1);
+    }
 }
 
 static int8_t usb_hid_find_slot(uint8_t dev_addr, uint8_t instance)
