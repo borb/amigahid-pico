@@ -15,11 +15,26 @@
 #include "display/disp_ssd.h"
 #include "output.h"
 
+#define DBGCONS_OLED_COLS 21
+
 struct
 {
     uint8_t hid_keyboard, hid_mouse, hid_controller;
     uint8_t plug_events, unplug_events;
 } debug_counters;
+
+#ifdef ENABLE_BLUETOOTH_HID
+static bool bt_passkey_active;
+
+static void dbgcons_write_padded_line(uint8_t line, char const *message)
+{
+    char linebuf[DBGCONS_OLED_COLS + 1] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "%-*.*s", DBGCONS_OLED_COLS, DBGCONS_OLED_COLS,
+        message != NULL ? message : "");
+    disp_write(0, line, linebuf);
+}
+#endif
 
 void dbgcons_init()
 {
@@ -34,10 +49,15 @@ void dbgcons_init()
     debug_counters.unplug_events = 0;
 
     dbgcons_print_counters();
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_bt_status("bt off");
+#endif
 #ifdef DEBUG_HID_STATUS
     disp_write(0, 2, "hid --");
 #endif
-#ifdef DEBUG_MOUSE
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_bt_passkey_clear();
+#elif defined(DEBUG_MOUSE)
     disp_write(0, 3, "mouse --");
 #endif
 }
@@ -126,7 +146,9 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
         incode, outcode, updown
     );
 
+#ifndef ENABLE_BLUETOOTH_HID
     disp_write(0, 1, linebuf);
+#endif
 #else
     (void)incode;
     (void)outcode;
@@ -209,10 +231,46 @@ void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
         buttons
     );
 
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 3, linebuf);
+#else
     disp_write(0, 3, linebuf);
+#endif
 #else
     (void)x;
     (void)y;
     (void)buttons;
+#endif
+}
+
+void dbgcons_bt_status(char const *status)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_write_padded_line(1, status);
+#else
+    (void)status;
+#endif
+}
+
+void dbgcons_bt_passkey(char const *message)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_passkey_active = true;
+    dbgcons_write_padded_line(3, message);
+#else
+    (void)message;
+#endif
+}
+
+void dbgcons_bt_passkey_clear(void)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_passkey_active = false;
+#ifdef DEBUG_MOUSE
+    dbgcons_write_padded_line(3, "mouse --");
+#else
+    dbgcons_write_padded_line(3, "");
+#endif
 #endif
 }
