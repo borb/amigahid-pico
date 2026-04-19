@@ -34,7 +34,9 @@ void dbgcons_init()
     debug_counters.unplug_events = 0;
 
     dbgcons_print_counters();
+#ifdef DEBUG_HID_STATUS
     disp_write(0, 2, "hid --");
+#endif
 #ifdef DEBUG_MOUSE
     disp_write(0, 3, "mouse --");
 #endif
@@ -139,6 +141,7 @@ void dbgcons_amiga_mod(uint8_t outcode, char updown)
 
 void dbgcons_hid_status(uint8_t dev_addr, uint8_t instance, uint8_t hid_protocol, bool receive_ok, uint8_t report_count, bool mounted)
 {
+#ifdef DEBUG_HID_STATUS
     char linebuf[32] = "";
 
     snprintf(
@@ -173,6 +176,14 @@ void dbgcons_hid_status(uint8_t dev_addr, uint8_t instance, uint8_t hid_protocol
         receive_ok ? "ok" : "fail"
     );
     disp_write(17, 2, linebuf);
+#else
+    (void)dev_addr;
+    (void)instance;
+    (void)hid_protocol;
+    (void)receive_ok;
+    (void)report_count;
+    (void)mounted;
+#endif
 }
 
 void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
