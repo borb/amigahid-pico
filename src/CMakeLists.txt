@@ -16,6 +16,7 @@ pico_enable_stdio_uart(amigahid-pico 1)
 
 target_link_libraries(amigahid-pico PUBLIC
   pico_stdlib
+  pico_util
   pico_multicore
   hardware_dma
   hardware_gpio

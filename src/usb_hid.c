@@ -79,7 +79,9 @@ void hid_app_task(void)
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    bool receive_ok;
 
+    hid_info[instance].report_count = 0;
     dbgcons_plug(hid_protocol_type[hid_protocol]);
 
     // this part doesn't entirely make sense to me; hid devices come in two modes, boot protocol and report;
@@ -91,7 +93,10 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
         // ahprintf("[PLUG] %02x report(s)\n", hid_info[instance].report_count);
     }
 
-    if (!tuh_hid_receive_report(dev_addr, instance)) {
+    receive_ok = tuh_hid_receive_report(dev_addr, instance);
+    dbgcons_hid_status(dev_addr, instance, hid_protocol, receive_ok, hid_info[instance].report_count, true);
+
+    if (!receive_ok) {
         // ahprintf("[PLUG] warning! report request failed; delayed initialisation?\n");
     }
 }
@@ -107,6 +112,8 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
+    dbgcons_hid_status(dev_addr, instance, hid_protocol, true, hid_info[instance].report_count, false);
+    hid_info[instance].report_count = 0;
 }
 
 /**
@@ -253,6 +260,7 @@ static void handle_event_mouse(uint8_t dev_addr, uint8_t instance, hid_mouse_rep
 
     // this would spam horrendously, so even when debug messages are on, this is probably... too much.
     // ahprintf("[hid] x: %d y: %d\n", report->x, report->y);
+    dbgcons_mouse_report(report->x, report->y, report->buttons);
 
     if (report->x || report->y)
         amiga_quad_mouse_set_motion(report->x, report->y);
