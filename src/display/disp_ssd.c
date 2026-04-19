@@ -31,6 +31,8 @@
 #define SSD_BAUD            1000000         // 1MHz; if my estimation is correct, this could achieve 122fps
 #define SSD_ADDR            0x3c            // my board has 0x78 jumper soldered closed on the back but ¯\_(ツ)_/¯
 #define I2C_MAX_TRANSFER    0x400 + 0x20    // 1KB + 32B overhead
+#define DISPLAY_QUEUE_LIMIT 64            // includes the startup command burst
+#define DISPLAY_PROBE_TIMEOUT_US 25000
 
 // display transaction structure
 typedef struct
@@ -45,9 +47,11 @@ typedef struct
 } display_transaction_t;
 
 static display_transaction_t *current_transaction = NULL,
-                             *last_transaction = NULL;
+                             *last_transaction = NULL,
+                             *completed_transactions = NULL;
 
 static uint8_t queue_depth = 0;
+static bool display_failed = false;
 
 /**
  * ssd1306 commands; borrowed from https://github.com/fivdi/pico-i2c-dma ssd1306 example code with thanks.
@@ -103,7 +107,7 @@ typedef enum
                                 // Byte2 = 0x14: Enable charge pump.
 } ssd1306_command_t;
 
-// declare i2c init & trans; resolves a circular dependency between the i2c irqh, trans and init functions
+// The IRQ handler starts the next queued transaction.
 static bool disp_i2c_init(void);
 static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length);
 
@@ -118,8 +122,8 @@ static bool _stop = false,
             _writing = false;
 
 // dma channels
-static int tx_chan = 0,
-           rx_chan = 0;
+static int tx_chan = -1,
+           rx_chan = -1;
 
 // display things: pixel command buffer (1 command followed by (x * y)/8)
 static uint8_t display_command[1 + ((SSD_WIDTH * SSD_HEIGHT) / 8)];
@@ -143,8 +147,6 @@ void (*disp_write)(uint8_t x, uint8_t y, char *message) = _real_disp_write;
 static void disp_ssd_i2c_irqh(void)
 {
     uint32_t status = i2c_get_hw(I2C_PORT)->intr_stat;
-    display_transaction_t *next_transaction = NULL;
-    uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
 
     // check for trans abort; read register causes clear to occur
     if (status & I2C_IC_INTR_STAT_R_TX_ABRT_BITS) {
@@ -158,40 +160,64 @@ static void disp_ssd_i2c_irqh(void)
         _stop = true;
     }
 
-    // if an abort happened (not end of transmission), abort dma, reinit i2c
-    if (_abort || !_stop) {
+    if (current_transaction == NULL || (!_abort && !_stop))
+        return;
+
+    // A failed OLED must not block USB/Bluetooth in interrupt context. Stop
+    // using it until reboot and leave all memory cleanup to the main loop.
+    if (_abort) {
+        i2c_get_hw(I2C_PORT)->intr_mask = 0;
         dma_channel_abort(tx_chan);
         if (_reading)
             dma_channel_abort(rx_chan);
-
-        disp_i2c_init();
+        last_transaction->next_transaction = completed_transactions;
+        completed_transactions = current_transaction;
+        current_transaction = last_transaction = NULL;
+        queue_depth = 0;
+        display_failed = true;
+        return;
     }
 
-    // point to the next transaction, if one is present
-    if (current_transaction->next_transaction != NULL)
-        next_transaction = current_transaction->next_transaction;
-
-    // deallocate memory associated with the current transaction
-    if (current_transaction->write_length > 0)
-        free(current_transaction->write_buffer);
-    if (current_transaction->read_length > 0)
-        free(current_transaction->read_buffer);
-    free(current_transaction);
-
-    current_transaction = NULL;
+    display_transaction_t *finished = current_transaction;
+    current_transaction = finished->next_transaction;
+    finished->next_transaction = completed_transactions;
+    completed_transactions = finished;
     queue_depth--;
 
     // trigger next transaction to start processing
-    if (next_transaction != NULL) {
-        current_transaction = next_transaction;
-        irq_set_enabled(irqn, false);
+    if (current_transaction != NULL) {
         disp_i2c_trans(
             current_transaction->write_buffer,
             current_transaction->write_length,
             current_transaction->read_buffer,
             current_transaction->read_length
         );
-        irq_set_enabled(irqn, true);
+    } else {
+        last_transaction = NULL;
+    }
+}
+
+// Main-loop only: the allocator is not safe to interrupt with an ISR free().
+static void disp_free_transaction(display_transaction_t *transaction)
+{
+    free(transaction->write_buffer);
+    free(transaction->read_buffer);
+    free(transaction);
+}
+
+void disp_ssd_task(void)
+{
+    uint irqn = (I2C_PORT == i2c0) ? I2C0_IRQ : I2C1_IRQ;
+    bool enabled = irq_is_enabled(irqn);
+    irq_set_enabled(irqn, false);
+    display_transaction_t *finished = completed_transactions;
+    completed_transactions = NULL;
+    irq_set_enabled(irqn, enabled);
+
+    while (finished != NULL) {
+        display_transaction_t *next = finished->next_transaction;
+        disp_free_transaction(finished);
+        finished = next;
     }
 }
 
@@ -271,6 +297,7 @@ bool disp_i2c_init(void)
     // since this is a fresh init, set these to false
     _abort = false;
     _stop = false;
+    display_failed = false;
 
     // unblock bus, if it's blocked
     if (check_blocked())
@@ -287,12 +314,14 @@ bool disp_i2c_init(void)
 
     // check for presence of display in blocking mode before we do anything dma related
     uint8_t command[2] = {0x80, SET_DISP_ON_OFF | 0x00}; // tell display to turn off
-    int result = i2c_write_blocking(I2C_PORT, SSD_ADDR, command, sizeof(command), false);
-    if (result == PICO_ERROR_GENERIC) {
+    int result = i2c_write_timeout_us(I2C_PORT, SSD_ADDR, command, sizeof(command), false,
+        DISPLAY_PROBE_TIMEOUT_US);
+    if (result != sizeof(command)) {
         // no device present
         // @todo setup function pointers but point them at noops if we discover the device is not present here.
         //       that way we don't end up wasting cycles firing data indiscriminately at something not present.
         disp_write = _noop_disp_write;
+        display_failed = true;
         return false;
     }
     disp_write = _real_disp_write;
@@ -302,18 +331,18 @@ bool disp_i2c_init(void)
 
     // activate the isr for the i2c interrupt
     irq_set_exclusive_handler(irqn, disp_ssd_i2c_irqh);
-    irq_set_enabled(irqn, true);
 
     // we might be reinitialising; free the channels if they're occupied otherwise we'll accidentally claim two more
     // without releasing the previous ones.
-    if (tx_chan)
+    if (tx_chan >= 0)
         dma_channel_unclaim(tx_chan);
-    if (rx_chan)
+    if (rx_chan >= 0)
         dma_channel_unclaim(rx_chan);
 
     // get some dma channels
     tx_chan = dma_claim_unused_channel(true);
     rx_chan = dma_claim_unused_channel(true);
+    irq_set_enabled(irqn, true);
 
     return true;
 }
@@ -432,7 +461,17 @@ static void disp_i2c_trans(uint8_t *write_buffer, size_t write_length, uint8_t *
  */
 void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t *read_buffer, size_t read_length)
 {
+    // Called only from core0's main context, including Bluetooth UI updates.
+    disp_ssd_task();
+    if (display_failed || queue_depth >= DISPLAY_QUEUE_LIMIT ||
+        write_length > I2C_MAX_TRANSFER || read_length > I2C_MAX_TRANSFER - write_length ||
+        (write_length == 0 && read_length == 0) ||
+        (write_length > 0 && write_buffer == NULL) || (read_length > 0 && read_buffer == NULL))
+        return;
+
     display_transaction_t *new_transaction = malloc(sizeof(display_transaction_t));
+    if (new_transaction == NULL)
+        return;
     new_transaction->write_buffer = NULL;
     new_transaction->write_length = write_length;
     new_transaction->read_buffer = NULL;
@@ -443,19 +482,34 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
 
     if (write_length > 0) {
         new_transaction->write_buffer = malloc(write_length);
+        if (new_transaction->write_buffer == NULL) {
+            disp_free_transaction(new_transaction);
+            return;
+        }
         memcpy(new_transaction->write_buffer, write_buffer, write_length);
     }
 
     if (read_length > 0) {
         new_transaction->read_buffer = malloc(read_length);
+        if (new_transaction->read_buffer == NULL) {
+            disp_free_transaction(new_transaction);
+            return;
+        }
         memcpy(new_transaction->read_buffer, read_buffer, read_length);
     }
 
+    // Mask before testing current_transaction: completion can otherwise remove
+    // the last queue entry between the test and the append below.
+    irq_set_enabled(irqn, false);
+    if (display_failed) {
+        irq_set_enabled(irqn, true);
+        disp_free_transaction(new_transaction);
+        return;
+    }
     queue_depth++;
 
     // check if we're the the first item in the list and act accordingly
     if (current_transaction == NULL) {
-        irq_set_enabled(irqn, false);
         new_transaction->prev_transaction = NULL;
         last_transaction = current_transaction = new_transaction;
 
@@ -472,7 +526,6 @@ void disp_queue_transaction(uint8_t *write_buffer, size_t write_length, uint8_t 
     }
 
     // this is not the first item, so shove this on the end of the queue
-    irq_set_enabled(irqn, false);
     new_transaction->prev_transaction = last_transaction;
     last_transaction->next_transaction = new_transaction;
     last_transaction = new_transaction;
@@ -540,6 +593,8 @@ void _noop_disp_write(uint8_t x, uint8_t y, char *message)
  */
 void _real_disp_write(uint8_t x, uint8_t y, char *message)
 {
+    if (display_failed)
+        return;
     UG_S16 px = x * 5,
            py = 2 + (y * 16);
 

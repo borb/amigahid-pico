@@ -68,6 +68,10 @@ int main(void)
 
         // amiga keyboard service routine
         amiga_service();
+
+        // Render deferred Bluetooth status and reclaim completed OLED DMA buffers.
+        dbgcons_task();
+        disp_ssd_task();
     }
 
     return 0;

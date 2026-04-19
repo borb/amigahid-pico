@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 void disp_ssd_init(void);
+void disp_ssd_task(void);
 
 extern void (*disp_write)(uint8_t x, uint8_t y, char *message);
 
