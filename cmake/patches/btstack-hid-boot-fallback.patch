@@ -1,0 +1,87 @@
+diff --git a/src/btstack_hid.h b/src/btstack_hid.h
+index afa6d47..be95421 100644
+--- a/src/btstack_hid.h
++++ b/src/btstack_hid.h
+@@ -95,6 +95,9 @@ typedef enum {
+ typedef enum {
+     HID_PROTOCOL_MODE_BOOT = 0,   
+     HID_PROTOCOL_MODE_REPORT,
++
++    // Host API only: try report mode, then boot mode if SDP is unavailable.
++    HID_PROTOCOL_MODE_REPORT_WITH_FALLBACK_TO_BOOT
+ } hid_protocol_mode_t;
+ 
+ typedef enum {
+diff --git a/src/classic/hid_host.c b/src/classic/hid_host.c
+index 203f0a7..5a0b973 100644
+--- a/src/classic/hid_host.c
++++ b/src/classic/hid_host.c
+@@ -530,6 +530,7 @@ static void hid_host_handle_sdp_client_query_result(uint8_t packet_type, uint16_
+     uint32_t       uuid;
+     uint8_t        status = ERROR_CODE_SUCCESS;
+     bool finalize_connection;
++    bool try_fallback_to_boot;
+ 
+     
+     hid_host_connection_t * connection = hid_host_get_connection_for_hid_cid(hid_host_sdp_context_control_cid);
+@@ -659,6 +660,7 @@ static void hid_host_handle_sdp_client_query_result(uint8_t packet_type, uint16_
+         case SDP_EVENT_QUERY_COMPLETE:
+             status = sdp_event_query_complete_get_status(packet);
+             finalize_connection = false;
++            try_fallback_to_boot = false;
+ 
+             switch (status){
+                 // remote has SDP server
+@@ -666,7 +668,8 @@ static void hid_host_handle_sdp_client_query_result(uint8_t packet_type, uint16_
+                     //  but no HID record
+                     if (!connection->control_psm || !connection->interrupt_psm) {
+                         status = ERROR_CODE_UNSUPPORTED_FEATURE_OR_PARAMETER_VALUE;
+-                        finalize_connection = true;
++                        try_fallback_to_boot = connection->requested_protocol_mode == HID_PROTOCOL_MODE_REPORT_WITH_FALLBACK_TO_BOOT;
++                        finalize_connection = !try_fallback_to_boot;
+                         break;
+                     }
+                     // report mode possible
+@@ -679,7 +682,8 @@ static void hid_host_handle_sdp_client_query_result(uint8_t packet_type, uint16_
+ 
+                 // SDP connection failed or remote does not have SDP server
+                 default:
+-                    finalize_connection = true;
++                    try_fallback_to_boot = connection->requested_protocol_mode == HID_PROTOCOL_MODE_REPORT_WITH_FALLBACK_TO_BOOT;
++                    finalize_connection = !try_fallback_to_boot;
+                     break;
+             }
+             
+@@ -692,11 +696,31 @@ static void hid_host_handle_sdp_client_query_result(uint8_t packet_type, uint16_
+ 
+             hid_emit_sniff_params_event(connection);
+ 
++            // Preserve the optional boot fallback used by older HID hosts.
++            if (try_fallback_to_boot){
++                connection->requested_protocol_mode = HID_PROTOCOL_MODE_BOOT;
++                if (connection->incoming){
++                    connection->set_protocol = true;
++                    connection->state = HID_HOST_CONNECTION_ESTABLISHED;
++                    hid_emit_descriptor_available_event(connection);
++                    l2cap_request_can_send_now_event(connection->control_cid);
++                } else {
++                    connection->state = HID_HOST_W4_CONTROL_CONNECTION_ESTABLISHED;
++                    status = l2cap_create_channel(hid_host_packet_handler, connection->remote_addr, BLUETOOTH_PSM_HID_CONTROL, 0xffff, &connection->control_cid);
++                    if (status != ERROR_CODE_SUCCESS){
++                        hid_host_sdp_context_control_cid = 0;
++                        hid_emit_connected_event(connection, status);
++                        hid_host_finalize_connection(connection);
++                    }
++                }
++                break;
++            }
++
+             // report mode possible
++            connection->requested_protocol_mode = HID_PROTOCOL_MODE_REPORT;
+             if (connection->incoming) {
+                 connection->set_protocol = true;
+                 connection->state = HID_HOST_CONNECTION_ESTABLISHED;
+-                connection->requested_protocol_mode = HID_PROTOCOL_MODE_REPORT;
+                 hid_emit_descriptor_available_event(connection);
+                 l2cap_request_can_send_now_event(connection->control_cid);
+             } else {

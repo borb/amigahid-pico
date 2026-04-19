@@ -20,6 +20,12 @@
 #include "pico/util/queue.h"
 #include "hardware/gpio.h"
 
+#ifdef ENABLE_BLUETOOTH_HID
+#include "pico/flash.h"
+#include "pico/sem.h"
+static semaphore_t mouse_core_ready;
+#endif
+
 #define AQM_MOTION_QUEUE_DEPTH 32
 
 typedef struct
@@ -98,8 +104,17 @@ void amiga_quad_mouse_init()
 
     queue_init(&motion_queue, sizeof(aqm_motion_t), AQM_MOTION_QUEUE_DEPTH);
 
+    // Bluetooth can write pairing data as soon as its stack is initialized.
+    // Wait until core1 can be paused safely during those flash writes.
+#ifdef ENABLE_BLUETOOTH_HID
+    sem_init(&mouse_core_ready, 0, 1);
+#endif
+
     // start the mouse motion loop on core1
     multicore_launch_core1(amiga_quad_mouse_motion);
+#ifdef ENABLE_BLUETOOTH_HID
+    sem_acquire_blocking(&mouse_core_ready);
+#endif
 }
 
 void amiga_quad_mouse_button(enum amiga_quad_mouse_buttons button, bool pressed)
@@ -141,6 +156,12 @@ void amiga_quad_mouse_set_motion(int16_t in_x, int16_t in_y)
 
 void amiga_quad_mouse_motion()
 {
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!flash_safe_execute_core_init())
+        panic("Mouse core flash lockout initialization failed");
+    sem_release(&mouse_core_ready);
+#endif
+
     // ahprintf("[aqm] hello from core1, mouse motion output loop starting\n");
     aqm_motion_t motion;
     int16_t out_x = 0, out_y = 0;
