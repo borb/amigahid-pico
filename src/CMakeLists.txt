@@ -1,4 +1,5 @@
 add_executable(amigahid-pico
+  input_bridge.c
   main.c
   usb_hid.c
 )
