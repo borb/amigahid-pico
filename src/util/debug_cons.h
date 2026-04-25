@@ -43,6 +43,10 @@ void dbgcons_hid_status(uint8_t dev_addr, uint8_t instance, uint8_t hid_protocol
 
 void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons);
 
+void dbgcons_mouse_wheel(int8_t wheel);
+
+void dbgcons_tankmouse_status(uint16_t queued, uint16_t requests, uint16_t responses);
+
 void dbgcons_bt_status(char const *status);
 
 void dbgcons_bt_passkey(char const *message);

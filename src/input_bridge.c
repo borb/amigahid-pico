@@ -163,6 +163,9 @@ void input_bridge_handle_mouse(uint8_t slot, hid_mouse_report_t const *report)
     if (report->x || report->y)
         amiga_quad_mouse_set_motion(report->x, report->y);
 
+    if (report->wheel)
+        amiga_quad_mouse_wheel(report->wheel);
+
     state->mouse = *report;
 }
 

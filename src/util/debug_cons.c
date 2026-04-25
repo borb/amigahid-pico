@@ -280,6 +280,67 @@ void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
 #endif
 }
 
+void dbgcons_mouse_wheel(int8_t wheel)
+{
+#ifdef DEBUG_MOUSE
+    char linebuf[32] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "wheel %+d", wheel);
+
+    ahprintf(
+        VT_CUP_POS VT_EL_LIN
+        "[mouse] wheel:%d\n",
+        7, 1,
+        wheel
+    );
+
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 4, linebuf);
+#else
+    disp_write(0, 4, linebuf);
+#endif
+#else
+    (void)wheel;
+#endif
+}
+
+void dbgcons_tankmouse_status(uint16_t queued, uint16_t requests, uint16_t responses)
+{
+#ifdef DEBUG_MOUSE
+    char linebuf[32] = "";
+
+    snprintf(
+        linebuf,
+        sizeof(linebuf),
+        "tm q%u rq%u rs%u",
+        queued,
+        requests,
+        responses
+    );
+
+    ahprintf(
+        VT_CUP_POS VT_EL_LIN
+        "[tankmouse] queued:%u requests:%u responses:%u\n",
+        8, 1,
+        queued,
+        requests,
+        responses
+    );
+
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 5, linebuf);
+#else
+    disp_write(0, 5, linebuf);
+#endif
+#else
+    (void)queued;
+    (void)requests;
+    (void)responses;
+#endif
+}
+
 void dbgcons_bt_status(char const *status)
 {
 #ifdef ENABLE_BLUETOOTH_HID
