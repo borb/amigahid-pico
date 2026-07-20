@@ -17,6 +17,12 @@ if (NOT PICO_BOARD)
 	set(PICO_BOARD pico)
 endif ()
 
+# DISPLAY_SSD1306 (0.96" panels, default) or
+# DISPLAY_SH1106 (1.3" panels; page-addressed, 132-wide ram with a 2px column offset)
+if (NOT DISPLAY_CONTROLLER)
+	set(DISPLAY_CONTROLLER DISPLAY_SSD1306)
+endif ()
+
 # use sdk from git submodule
 include(pico-sdk/pico_sdk_init.cmake)
 
@@ -29,12 +35,43 @@ add_compile_options(-Wall -Werror)
 # uncomment for debug slurry
 add_compile_definitions(DEBUG_MESSAGES=1)
 
+# enable per-report mouse debug only when explicitly requested
+option(DEBUG_MOUSE "Enable per-report mouse debug output" OFF)
+if (DEBUG_MOUSE)
+	add_compile_definitions(DEBUG_MOUSE=1)
+endif ()
+
+# enable per-key keyboard debug only when explicitly requested
+option(DEBUG_KEYBOARD "Enable per-key keyboard debug output" OFF)
+if (DEBUG_KEYBOARD)
+	add_compile_definitions(DEBUG_KEYBOARD=1)
+endif ()
+
+# enable HID mount/status debug only when explicitly requested
+option(DEBUG_HID_STATUS "Enable HID status debug output" OFF)
+if (DEBUG_HID_STATUS)
+	add_compile_definitions(DEBUG_HID_STATUS=1)
+endif ()
+
+# enable bluetooth hid host support when building for pico w
+option(ENABLE_BLUETOOTH_HID "Enable Bluetooth HID host support on Pico W" OFF)
+if (ENABLE_BLUETOOTH_HID)
+	add_compile_definitions(ENABLE_BLUETOOTH_HID=1)
+endif ()
+
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_definitions(${BOARD_TYPE})
+
+# set the display controller type (ssd1306 vs sh1106)
+add_compile_definitions(${DISPLAY_CONTROLLER})
 
 # debugging for tinyusb - be warned that it can cause timing issues causing things to break
 # add_compile_definitions(CFG_TUSB_DEBUG=2)
 
 pico_sdk_init()
+
+if (ENABLE_BLUETOOTH_HID AND NOT PICO_CYW43_SUPPORTED)
+	message(FATAL_ERROR "ENABLE_BLUETOOTH_HID requires a CYW43 board such as pico_w")
+endif ()
 
 add_subdirectory(src)

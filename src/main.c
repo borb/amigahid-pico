@@ -21,6 +21,10 @@
 #include "config.h"
 #include "tusb_config.h"
 
+#ifdef ENABLE_BLUETOOTH_HID
+#include "bt_hid.h"
+#endif
+
 // defined within usb_hid.c
 extern void hid_app_task(void);
 
@@ -46,9 +50,17 @@ int main(void)
     // start amiga mouse emulation
     amiga_quad_mouse_init();
 
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_hid_init();
+#endif
+
     while (1) {
         // run host mode jobs (hotplug events, packet io callbacks)
         tuh_task();
+
+#ifdef ENABLE_BLUETOOTH_HID
+        bt_hid_task();
+#endif
 
         // amiga keyboard service routine
         amiga_service();

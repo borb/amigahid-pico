@@ -32,6 +32,11 @@
 #define SSD_ADDR            0x3c            // my board has 0x78 jumper soldered closed on the back but ¯\_(ツ)_/¯
 #define I2C_MAX_TRANSFER    0x400 + 0x20    // 1KB + 32B overhead
 
+#if defined(DISPLAY_SH1106)
+// the sh1106  display data starts at column 2
+#define SH1106_COL_OFFSET   2
+#endif
+
 // display transaction structure
 typedef struct
 {
@@ -101,6 +106,20 @@ typedef enum
                                 // charge pump.
                                 // Byte2 = 0x10: Disable charge pump.
                                 // Byte2 = 0x14: Enable charge pump.
+
+#if defined(DISPLAY_SH1106)
+    // docs: https://www.displaysino.com/upload/default/20231213/b188c34d10028900625ffc3e1c7d59e4.pdf
+    // the sh1106 has no charge pump command; it uses an internal dc-dc 
+    // converter and page-based addressing instead)
+    SET_LOWER_COL_ADDR = 0x00,   // Set lower nibble of column address (0x00-0x0f).
+    SET_HIGHER_COL_ADDR = 0x10,  // Set higher nibble of column address (0x10-0x1f).
+    SET_PAGE_ADDR = 0xb0,        // Set page address (0xb0-0xb7).
+    SET_PUMP_VOLTAGE = 0x30,     // Set dc-dc pump output voltage (0x30-0x33).
+    SET_DCDC_CONTROL = 0xad,     // Double byte command to control the dc-dc
+                                // converter.
+                                // Byte2 = 0x8a: Disable dc-dc.
+                                // Byte2 = 0x8b: Enable dc-dc.
+#endif
 } ssd1306_command_t;
 
 // declare i2c init & trans; resolves a circular dependency between the i2c irqh, trans and init functions
@@ -520,7 +539,26 @@ static void ugui_draw_pixel_cb(UG_S16 x, UG_S16 y, UG_COLOUR colour)
  */
 static void disp_ssd_update()
 {
+#if defined(DISPLAY_SH1106)
+    // the sh1106 has no horizontal addressing mode: the column counter increments within a page but never advances
+    // to the next page on its own, for each of the 8 pages, set the page address and column (offset by 2) then
+    // write that page's 128 bytes. each page is sent as one i2c transaction: a run of single-command control bytes
+    // (0x80) to position the cursor, followed by a data control byte (0x40) and the pixel data.
+    uint8_t page_buffer[7 + SSD_WIDTH];
+    for (uint8_t page = 0; page < (SSD_HEIGHT / 8); page++) {
+        page_buffer[0] = 0x80;                                        // control: one command follows
+        page_buffer[1] = SET_PAGE_ADDR | page;                       // set page address
+        page_buffer[2] = 0x80;                                       // control: one command follows
+        page_buffer[3] = SET_LOWER_COL_ADDR | (SH1106_COL_OFFSET & 0x0f);
+        page_buffer[4] = 0x80;                                       // control: one command follows
+        page_buffer[5] = SET_HIGHER_COL_ADDR | (SH1106_COL_OFFSET >> 4);
+        page_buffer[6] = 0x40;                                       // control: data stream follows to end
+        memcpy(&page_buffer[7], &framebuffer[page * SSD_WIDTH], SSD_WIDTH);
+        disp_queue_transaction(page_buffer, sizeof(page_buffer), NULL, 0);
+    }
+#else
     disp_queue_transaction(display_command, sizeof(display_command), NULL, 0);
+#endif
 }
 
 /**
@@ -562,6 +600,28 @@ static inline void write_byte(uint8_t devregister, uint8_t byte)
 }
 
 /**
+ * Controller-specific part of the init sequence. 
+ * The ssd1306 and sh1106 share almost all of them; 
+ * these three macros carry only the differences 
+ * (each including its own trailing comma so the empty variants expand to nothing):
+ *   - DISP_INIT_POWER:      charge pump (ssd1306) vs internal dc-dc converter (sh1106)
+ *   - DISP_INIT_PUMP:       dc-dc pump output voltage (sh1106 only)
+ *   - DISP_INIT_ADDRESSING: horizontal addressing setup (ssd1306 only); the sh1106 has no horizontal addressing mode
+ *                           and instead sets page/column at flush time (see disp_ssd_update)
+ */
+#if defined(DISPLAY_SH1106)
+#  define DISP_INIT_POWER       SET_DCDC_CONTROL, 0x8b,
+#  define DISP_INIT_PUMP        SET_PUMP_VOLTAGE | 0x02,
+#  define DISP_INIT_ADDRESSING
+#else
+#  define DISP_INIT_POWER       SET_CHARGE_PUMP, 0x14,
+#  define DISP_INIT_PUMP
+#  define DISP_INIT_ADDRESSING  SET_ADDRESSING_MODE, 0x00, \
+                                SET_COLUMN_ADDRESS, 0x00, 0x7f, \
+                                SET_PAGE_ADDRESS, 0x00, 0x07,
+#endif
+
+/**
  * Setup the i2c and ssd1306 display ready for use. Without calling this, behaviour is undefined.
  *
  * @return void
@@ -576,19 +636,18 @@ void disp_ssd_init(void)
         SET_DISP_OFFSET, 0x00,          // Set vertical display shift to 0.
         SET_DISP_START_LINE,            // Set display RAM display start line
                                         //   register to 0.
-        SET_CHARGE_PUMP, 0x14,          // Enable charge pump.
-        SET_SEGMENT_REMAP | 0x01,       // Map col addr 127 to SEG0.
+        DISP_INIT_POWER                 // Enable charge pump (ssd1306) / dc-dc converter (sh1106).
+        SET_SEGMENT_REMAP | 0x01,       // Map last column to SEG0.
         SET_COM_OUTPUT_DIR | 0x08,      // Scan from N-1 to 0. (N=height)
         SET_COM_PINS_CONFIG, 0x12,      // Set COM pins hardware configuration to
                                         //   0x12.
         SET_CONTRAST, 0xcf,             // Set contrast to 0xcf
         SET_PRECHARGE_PERIOD, 0xf1,     // Set pre-charge to 0xf1
         SET_VCOM_DESEL_LEVEL, 0x40,     // Set VCOMH deselect to 0x40
+        DISP_INIT_PUMP                  // Set dc-dc pump output voltage (sh1106 only).
         SET_ENTIRE_DISP_ON,             // Output follows RAM content.
         SET_NORMAL_INVERTED | 0x00,     // Normal display.
-        SET_ADDRESSING_MODE, 0x00,      // Set addressing mode to horizontal mode.
-        SET_COLUMN_ADDRESS, 0x00, 0x7f, // Set column start and end address.
-        SET_PAGE_ADDRESS, 0x00, 0x07,   // Set page start and end address.
+        DISP_INIT_ADDRESSING            // Horizontal addressing setup (ssd1306 only).
         SET_DISP_ON_OFF | 0x01,         // Display on.
     };
 
