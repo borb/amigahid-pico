@@ -12481,7 +12481,7 @@ void _UG_PutChar(char chr, UG_S16 x, UG_S16 y, UG_COLOR fc, UG_COLOR bc, const U
 
 static void _UG_PutText(UG_TEXT *txt)
 {
-    UG_U16 sl, rc, wl;
+    UG_U16 rc, wl;
     UG_S16 xp, yp;
     UG_S16 xs = txt->a.xs;
     UG_S16 ys = txt->a.ys;
@@ -12526,7 +12526,6 @@ static void _UG_PutText(UG_TEXT *txt)
     yp += ys;
 
     while (1) {
-        sl = 0;
         c = str;
         wl = 0;
         while ((*c != 0) && (*c != '\n')) {
@@ -12534,7 +12533,6 @@ static void _UG_PutText(UG_TEXT *txt)
                 c++;
                 continue;
             }
-            sl++;
             wl += (txt->font->widths ? txt->font->widths[*c - txt->font->start_char] : char_width) + char_h_space;
             c++;
         }
@@ -13527,20 +13525,18 @@ UG_S16 UG_WindowGetOuterHeight(UG_WINDOW *wnd)
 UG_RESULT _UG_WindowDrawTitle(UG_WINDOW *wnd)
 {
     UG_TEXT txt;
-    UG_S16 xs, ys, xe, ye;
+    UG_S16 xs, ys, xe;
 
     if ((wnd != NULL) && (wnd->state & WND_STATE_VALID)) {
         xs = wnd->xs;
         ys = wnd->ys;
         xe = wnd->xe;
-        ye = wnd->ye;
 
         /* 3D style? */
         if (wnd->style & WND_STYLE_3D) {
             xs += 3;
             ys += 3;
             xe -= 3;
-            ye -= 3;
         }
 
         /* Is the window active or inactive? */
