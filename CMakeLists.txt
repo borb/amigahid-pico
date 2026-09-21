@@ -4,6 +4,14 @@ set(ENV{PICO_SDK_PATH} "${CMAKE_SOURCE_DIR}/pico-sdk/")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# pin external dependencies independently of the versions bundled with the SDK
+if (NOT PICO_TINYUSB_PATH AND NOT DEFINED ENV{PICO_TINYUSB_PATH})
+	set(PICO_TINYUSB_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/tinyusb")
+endif ()
+if (NOT PICO_CYW43_DRIVER_PATH AND NOT DEFINED ENV{PICO_CYW43_DRIVER_PATH})
+	set(PICO_CYW43_DRIVER_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/cyw43-driver")
+endif ()
+
 # amigahid-pico build target; see src/config.h BOARD_* defines; default to rev4
 if (NOT BOARD_TYPE)
 	set(BOARD_TYPE BOARD_HIDPICO_REV4)
