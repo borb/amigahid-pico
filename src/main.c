@@ -21,6 +21,10 @@
 #include "config.h"
 #include "tusb_config.h"
 
+#ifdef ENABLE_BLUETOOTH_HID
+#include "bt_hid.h"
+#endif
+
 // defined within usb_hid.c
 extern void hid_app_task(void);
 
@@ -37,7 +41,11 @@ int main(void)
     dbgcons_init();
 
     // initialise the usb host stack on the rhport from tusb_config.h
-    tuh_init(BOARD_TUH_RHPORT);
+    const tusb_rhport_init_t rhport_init = {
+        .role = TUSB_ROLE_HOST,
+        .speed = TUH_OPT_HIGH_SPEED ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
+    };
+    tusb_init(BOARD_TUH_RHPORT, &rhport_init);
 
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is
@@ -46,12 +54,24 @@ int main(void)
     // start amiga mouse emulation
     amiga_quad_mouse_init();
 
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_hid_init();
+#endif
+
     while (1) {
         // run host mode jobs (hotplug events, packet io callbacks)
         tuh_task();
 
+#ifdef ENABLE_BLUETOOTH_HID
+        bt_hid_task();
+#endif
+
         // amiga keyboard service routine
         amiga_service();
+
+        // Render deferred Bluetooth status and reclaim completed OLED DMA buffers.
+        dbgcons_task();
+        disp_ssd_task();
     }
 
     return 0;

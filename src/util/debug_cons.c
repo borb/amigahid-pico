@@ -10,16 +10,67 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+
+#ifdef ENABLE_BLUETOOTH_HID
+#include "hardware/sync.h"
+#endif
 
 #include "debug_cons.h"
 #include "display/disp_ssd.h"
 #include "output.h"
+
+#define DBGCONS_OLED_COLS 21
 
 struct
 {
     uint8_t hid_keyboard, hid_mouse, hid_controller;
     uint8_t plug_events, unplug_events;
 } debug_counters;
+
+#ifdef ENABLE_BLUETOOTH_HID
+static bool bt_passkey_active;
+static char bt_pending_lines[2][DBGCONS_OLED_COLS + 1];
+static bool bt_pending_dirty[2];
+
+static void dbgcons_write_padded_line(uint8_t line, char const *message)
+{
+    char linebuf[DBGCONS_OLED_COLS + 1] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "%-*.*s", DBGCONS_OLED_COLS, DBGCONS_OLED_COLS,
+        message != NULL ? message : "");
+
+    // CYW43 can call this from its background IRQ. UGUI and the display
+    // allocator must only run in core0's main context.
+    uint8_t slot = line == 1 ? 0 : 1;
+    uint32_t irq_state = save_and_disable_interrupts();
+    memcpy(bt_pending_lines[slot], linebuf, sizeof(linebuf));
+    bt_pending_dirty[slot] = true;
+    restore_interrupts(irq_state);
+
+    // Preserve startup-stage messages before the main loop starts.
+    if (!__get_current_exception())
+        dbgcons_task();
+}
+#endif
+
+void dbgcons_task(void)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    for (uint8_t slot = 0; slot < 2; slot++) {
+        char linebuf[DBGCONS_OLED_COLS + 1];
+        uint32_t irq_state = save_and_disable_interrupts();
+        bool dirty = bt_pending_dirty[slot];
+        if (dirty) {
+            memcpy(linebuf, bt_pending_lines[slot], sizeof(linebuf));
+            bt_pending_dirty[slot] = false;
+        }
+        restore_interrupts(irq_state);
+        if (dirty)
+            disp_write(0, slot == 0 ? 1 : 3, linebuf);
+    }
+#endif
+}
 
 void dbgcons_init()
 {
@@ -34,10 +85,15 @@ void dbgcons_init()
     debug_counters.unplug_events = 0;
 
     dbgcons_print_counters();
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_bt_status("bt off");
+#endif
 #ifdef DEBUG_HID_STATUS
     disp_write(0, 2, "hid --");
 #endif
-#ifdef DEBUG_MOUSE
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_bt_passkey_clear();
+#elif defined(DEBUG_MOUSE)
     disp_write(0, 3, "mouse --");
 #endif
 }
@@ -126,7 +182,9 @@ void dbgcons_amiga_key(uint8_t incode, uint8_t outcode, char *updown)
         incode, outcode, updown
     );
 
+#ifndef ENABLE_BLUETOOTH_HID
     disp_write(0, 1, linebuf);
+#endif
 #else
     (void)incode;
     (void)outcode;
@@ -209,10 +267,107 @@ void dbgcons_mouse_report(int16_t x, int16_t y, uint8_t buttons)
         buttons
     );
 
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 3, linebuf);
+#else
     disp_write(0, 3, linebuf);
+#endif
 #else
     (void)x;
     (void)y;
     (void)buttons;
+#endif
+}
+
+void dbgcons_mouse_wheel(int8_t wheel)
+{
+#ifdef DEBUG_MOUSE
+    char linebuf[32] = "";
+
+    snprintf(linebuf, sizeof(linebuf), "wheel %+d", wheel);
+
+    ahprintf(
+        VT_CUP_POS VT_EL_LIN
+        "[mouse] wheel:%d\n",
+        7, 1,
+        wheel
+    );
+
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 4, linebuf);
+#else
+    disp_write(0, 4, linebuf);
+#endif
+#else
+    (void)wheel;
+#endif
+}
+
+void dbgcons_tankmouse_status(uint16_t queued, uint16_t requests, uint16_t responses)
+{
+#ifdef DEBUG_MOUSE
+    char linebuf[32] = "";
+
+    snprintf(
+        linebuf,
+        sizeof(linebuf),
+        "tm q%u rq%u rs%u",
+        queued,
+        requests,
+        responses
+    );
+
+    ahprintf(
+        VT_CUP_POS VT_EL_LIN
+        "[tankmouse] queued:%u requests:%u responses:%u\n",
+        8, 1,
+        queued,
+        requests,
+        responses
+    );
+
+#ifdef ENABLE_BLUETOOTH_HID
+    if (!bt_passkey_active)
+        disp_write(0, 5, linebuf);
+#else
+    disp_write(0, 5, linebuf);
+#endif
+#else
+    (void)queued;
+    (void)requests;
+    (void)responses;
+#endif
+}
+
+void dbgcons_bt_status(char const *status)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    dbgcons_write_padded_line(1, status);
+#else
+    (void)status;
+#endif
+}
+
+void dbgcons_bt_passkey(char const *message)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_passkey_active = true;
+    dbgcons_write_padded_line(3, message);
+#else
+    (void)message;
+#endif
+}
+
+void dbgcons_bt_passkey_clear(void)
+{
+#ifdef ENABLE_BLUETOOTH_HID
+    bt_passkey_active = false;
+#ifdef DEBUG_MOUSE
+    dbgcons_write_padded_line(3, "mouse --");
+#else
+    dbgcons_write_padded_line(3, "");
+#endif
 #endif
 }

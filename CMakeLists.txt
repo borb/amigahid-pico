@@ -4,6 +4,14 @@ set(ENV{PICO_SDK_PATH} "${CMAKE_SOURCE_DIR}/pico-sdk/")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# pin external dependencies independently of the versions bundled with the SDK
+if (NOT PICO_TINYUSB_PATH AND NOT DEFINED ENV{PICO_TINYUSB_PATH})
+	set(PICO_TINYUSB_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/tinyusb")
+endif ()
+if (NOT PICO_CYW43_DRIVER_PATH AND NOT DEFINED ENV{PICO_CYW43_DRIVER_PATH})
+	set(PICO_CYW43_DRIVER_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/cyw43-driver")
+endif ()
+
 # amigahid-pico build target; see src/config.h BOARD_* defines; default to rev4
 if (NOT BOARD_TYPE)
 	set(BOARD_TYPE BOARD_HIDPICO_REV4)
@@ -47,6 +55,13 @@ if (DEBUG_HID_STATUS)
 	add_compile_definitions(DEBUG_HID_STATUS=1)
 endif ()
 
+# enable bluetooth hid host support when building for pico w
+option(ENABLE_BLUETOOTH_HID "Enable Bluetooth HID host support on Pico W" OFF)
+if (ENABLE_BLUETOOTH_HID)
+	add_compile_definitions(ENABLE_BLUETOOTH_HID=1)
+	include(cmake/bluetooth_compat.cmake)
+endif ()
+
 # set the board revision (changes which pins are mapped to which ports)
 add_compile_definitions(${BOARD_TYPE})
 
@@ -54,5 +69,9 @@ add_compile_definitions(${BOARD_TYPE})
 # add_compile_definitions(CFG_TUSB_DEBUG=2)
 
 pico_sdk_init()
+
+if (ENABLE_BLUETOOTH_HID AND NOT PICO_CYW43_SUPPORTED)
+	message(FATAL_ERROR "ENABLE_BLUETOOTH_HID requires a CYW43 board such as pico_w")
+endif ()
 
 add_subdirectory(src)
