@@ -37,7 +37,11 @@ int main(void)
     dbgcons_init();
 
     // initialise the usb host stack on the rhport from tusb_config.h
-    tuh_init(BOARD_TUH_RHPORT);
+    const tusb_rhport_init_t rhport_init = {
+        .role = TUSB_ROLE_HOST,
+        .speed = TUH_OPT_HIGH_SPEED ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
+    };
+    tusb_init(BOARD_TUH_RHPORT, &rhport_init);
 
     // we're single arch right now, but in future this should hand off to whatever the
     // configured arch is
