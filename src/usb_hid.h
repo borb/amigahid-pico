@@ -9,6 +9,16 @@
 #ifndef _USB_HID_H
 #define _USB_HID_H
 
+/**
+ * Clear HID task state for startup
+ */
+void hid_init(void);
+
+/**
+ * Perform regular HID task maintenance on loop
+ */
+void hid_app_task(void);
+
 // usb report identifier bytes
 #define USAGE_MOUSE                 0x02
 #define USAGE_PAGE_BUTTON           0x09

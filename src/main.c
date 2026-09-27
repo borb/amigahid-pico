@@ -22,11 +22,9 @@
 #include "util/output.h"
 
 #include "config.h"
-#include "tusb_config.h"
 #include "gen_version.h"
-
-// defined within usb_hid.c
-extern void hid_app_task(void);
+#include "tusb_config.h"
+#include "usb_hid.h"
 
 // main entry point
 int main(void)
@@ -49,8 +47,7 @@ int main(void)
 
     // initialise the usb host stack on the rhport from tusb_config.h
     ahprintf("About to init USB stack.\n");
-    // @todo this is not the right place for this: needs moving... somewhere?
-    tuh_hid_set_default_protocol(HID_PROTOCOL_REPORT);
+    hid_init();
     tuh_init(BOARD_TUH_RHPORT);
     ahprintf("USB stack init complete.\n\n");
 

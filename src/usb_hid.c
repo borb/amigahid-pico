@@ -21,6 +21,7 @@
 #include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_hid.h"
+#include "config.h"
 
 // other includes
 #include <stdbool.h>
@@ -61,10 +62,13 @@ const uint8_t hid_protocol_type[] = { AP_H_UNKNOWN, AP_H_KEYBOARD, AP_H_MOUSE };
 // hid information structure
 static struct _hid_info
 {
+    uint8_t dev_addr;
     uint8_t report_count;
     tuh_hid_report_info_t report_info[MAX_REPORT];
     HID_ReportInfo_t parsed_report;
     bool in_report;
+    bool needs_switch;
+    bool attached; // @todo is this useful?
 } hid_info[CFG_TUH_HID];
 
 static uint8_t led_report = 0;
@@ -74,20 +78,35 @@ static void handle_event_keyboard(uint8_t dev_addr, uint8_t instance, hid_keyboa
 static void handle_event_mouse_hidbp(uint8_t dev_addr, uint8_t instance, hid_mouse_report_t const *report);
 static void handle_event_mouse_report(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t report_len);
 
+void hid_init(void)
+{
+    uint8_t instance;
+
+    for (instance = 0; instance < CFG_TUH_HID; instance++) {
+        hid_info[instance].report_count = 0;
+        hid_info[instance].in_report = false;
+        hid_info[instance].needs_switch = false;
+        hid_info[instance].attached = false;
+    }
+}
+
 void hid_app_task(void)
 {
-    // null function to satisfy stack
+    uint8_t instance;
 
-    /**
-     * @todo
-     *
-     * this is the place to switch out of hidbp mode rather than the mount callback.
-     * create a pending dev_addr/instance list and set_protocol report on each one, then clear the entry.
-     * might not need to process the hid report structure in here, that may be fine in the callback.
-     *
-     * this means we can avoid blanket report mode for all devices, and thus not force keyboards into report
-     * mode until some code is written for it.
-     */
+    /* @todo this does not work */
+    for (instance = 0; instance < CFG_TUH_HID; instance++) {
+        if (hid_info[instance].needs_switch) {
+            ahprintf("Attempting report switch for address 0x%02x, instance 0x%02x: ", hid_info[instance].dev_addr, instance);
+            hid_info[instance].needs_switch = false;
+            if (tuh_hid_set_protocol(hid_info[instance].dev_addr, instance, HID_PROTOCOL_REPORT)) {
+                hid_info[instance].in_report = true;
+                ahprintf("success.\n");
+            } else {
+                ahprintf("failure.\n");
+            }
+        }
+    }
 }
 
 // callback functions; methods below suffixed with "_cb" are called by tinyusb
@@ -142,7 +161,10 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
     uint16_t vendor_id, product_id;
+    hid_info[instance].dev_addr = dev_addr;
     hid_info[instance].in_report = false;
+    hid_info[instance].needs_switch = false;
+    hid_info[instance].attached = true;
 
     tuh_vid_pid_get(dev_addr, &vendor_id, &product_id);
 
