@@ -192,16 +192,13 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, const uint8_t *desc_re
 
     // switch mouse into report mode (out of hidbp)
     if ((hid_protocol == HID_ITF_PROTOCOL_MOUSE) && (desc_report != NULL) && (desc_len > 0)) {
-        ahprintf("Device is a mouse and has a report descriptor; attempting to parse descriptor and switch mouse out of hidbp.\n");
-        if (
-            (USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful) /*&&
-            tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT)*/
-        ) {
+        ahprintf("Device is a mouse and has a report descriptor; attempting to parse descriptor: ");
+        if ((USB_ProcessHIDReport(desc_report, desc_len, &hid_info[instance].parsed_report) == HID_PARSE_Successful)) {
             // we managed to parse the hid report descriptor and put the mouse into report mode; high five
-            hid_info[instance].in_report = true;
-            ahprintf("Switch complete. Full feature mode should proceed for this device. Parsed report located at 0x%08x\n", &hid_info[instance].parsed_report);
+            ahprintf("success, memory address 0x%08x.\n",  &hid_info[instance].parsed_report);
+            hid_info[instance].needs_switch = true;
         } else {
-            ahprintf("Didn't complete the switch. Remaining in hidbp.\n");
+            ahprintf("failure.\n");
         }
     }
 
@@ -218,7 +215,11 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
     uint8_t hid_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    ahprintf("HID device detached, address %02x, instance %02x, protocol %02x.\n", dev_addr, instance, hid_protocol);
+    ahprintf("HID device detached, address 0x%02x, instance 0x%02x, protocol 0x%02x.\n", dev_addr, instance, hid_protocol);
+
+    // wipe this value; we don't need to clear the hid_info[] entry but at least wipe this value
+    hid_info[instance].needs_switch = false;
+    hid_info[instance].attached = false;
 
     dbgcons_unplug(hid_protocol_type[hid_protocol]);
 }
@@ -241,7 +242,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
-            ahprintf("\n\nMouse event triggered via report_received_cb()\n");
+            ahprintf("\n\nMouse event triggered via report_received_cb() (d: 0x%02x, i: 0x%02x)\n", dev_addr, instance);
             if (hid_info[instance].in_report) {
                 handle_event_mouse_report(dev_addr, instance, report, len);
             } else {
@@ -330,7 +331,7 @@ static void process_report(uint8_t dev_addr, uint8_t instance, uint8_t const *re
 
             case HID_USAGE_DESKTOP_MOUSE:
                 // mouse event
-                ahprintf("\n\nMouse event triggered via process_report()\n");
+                ahprintf("\n\nMouse event triggered via process_report() (d: 0x%02x, i: 0x%02x)\n", dev_addr, instance);
                 if (hid_info[instance].in_report) {
                     handle_event_mouse_report(dev_addr, instance, report, len);
                 } else {
