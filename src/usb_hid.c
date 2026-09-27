@@ -94,16 +94,15 @@ void hid_app_task(void)
 {
     uint8_t instance;
 
-    /* @todo this does not work */
+    /* @todo this might work now? */
     for (instance = 0; instance < CFG_TUH_HID; instance++) {
         if (hid_info[instance].needs_switch) {
             ahprintf("Attempting report switch for address 0x%02x, instance 0x%02x: ", hid_info[instance].dev_addr, instance);
             hid_info[instance].needs_switch = false;
             if (tuh_hid_set_protocol(hid_info[instance].dev_addr, instance, HID_PROTOCOL_REPORT)) {
-                hid_info[instance].in_report = true;
-                ahprintf("success.\n");
+                ahprintf("request accepted; wait for callback.\n");
             } else {
-                ahprintf("failure.\n");
+                ahprintf("request denied.\n");
             }
         }
     }
@@ -262,6 +261,25 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
     // if (!tuh_hid_receive_report(dev_addr, instance)) {
     //     ahprintf("[ERROR] unable to receive hid event report\n");
     // }
+}
+
+/**
+ * called by tusb after hid_set_protocol has been completed; next result is the set protocol,
+ * even if it's not in report mode (check 'protocol' parameter)
+ *
+ * @param dev_addr  Address of device
+ * @param instance  Instance of device
+ * @param protocol  Protocol device is now in
+ */
+void tuh_hid_set_protocol_complete_cb(uint8_t dev_addr, uint8_t instance, uint8_t protocol)
+{
+    if (protocol == HID_PROTOCOL_REPORT) {
+        hid_info[instance].in_report = true;
+        ahprintf("Report switch for address 0x%02x, instance 0x%02x: success\n", hid_info[instance].dev_addr, instance);
+        return;
+    }
+
+    ahprintf("Report switch for address 0x%02x, instance 0x%02x: failure\n", hid_info[instance].dev_addr, instance);
 }
 
 /**
