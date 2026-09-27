@@ -48,7 +48,7 @@ void amiga_hid_send(uint8_t hidcode, bool up);
 void amiga_hid_modifier(hid_keyboard_modifier_bm_t modifier, bool up);
 
 /**
- * @brief Send a keycode to the Amiga
+ * @brief Queue a keycode for transmission to the Amiga
  *
  * @param keycode   Keycode to send to the host
  * @param up        Boolean press status; if true, code is & 0x80 before rol
